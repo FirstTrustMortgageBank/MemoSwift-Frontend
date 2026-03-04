@@ -245,7 +245,12 @@ const menuGroups = [
       {
         icon: GridIcon,
         name: "Dashboard",
-        subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+        subItems: [{ name: "Main Dashboard", path: "/", pro: false }],
+      },
+      {
+        icon: PlugInIcon,
+        name: "Memo-Editor",
+        path: "/memo",
       },
       {
         icon: CalenderIcon,

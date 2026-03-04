@@ -9,7 +9,7 @@
         <div>
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Monthly Target</h3>
           <p class="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-            Target you’ve set for each month
+            Memo completion target for each month
           </p>
         </div>
         <div>
@@ -45,19 +45,19 @@
         >
       </div>
       <p class="mx-auto mt-1.5 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-        You earn $3287 today, it's higher than last month. Keep up your good work!
+        You've completed 38 memos today, exceeding your daily target. Keep up the great work!
       </p>
     </div>
 
     <div class="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-          Target
+          Monthly Target
         </p>
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          $20K
+          250 Memos
           <svg
             width="16"
             height="16"
@@ -73,18 +73,19 @@
             />
           </svg>
         </p>
+        <p class="text-xs text-center text-gray-400">85% achieved</p>
       </div>
 
-      <div class="w-px bg-gray-200 h-7 dark:bg-gray-800"></div>
+      <div class="w-px bg-gray-200 h-12 dark:bg-gray-800"></div>
 
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-          Revenue
+          Completed
         </p>
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          $20K
+          212 Memos
           <svg
             width="16"
             height="16"
@@ -100,9 +101,10 @@
             />
           </svg>
         </p>
+        <p class="text-xs text-center text-gray-400">+24 vs last month</p>
       </div>
 
-      <div class="w-px bg-gray-200 h-7 dark:bg-gray-800"></div>
+      <div class="w-px bg-gray-200 h-12 dark:bg-gray-800"></div>
 
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
@@ -111,7 +113,7 @@
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          $20K
+          38 Memos
           <svg
             width="16"
             height="16"
@@ -127,6 +129,7 @@
             />
           </svg>
         </p>
+        <p class="text-xs text-center text-gray-400">Daily goal: 30</p>
       </div>
     </div>
   </div>
@@ -135,16 +138,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import DropdownMenu from '../common/DropdownMenu.vue'
+
 const menuItems = [
-  { label: 'View More', onClick: () => console.log('View More clicked') },
-  { label: 'Delete', onClick: () => console.log('Delete clicked') },
+  { label: 'View Details', onClick: () => console.log('View Details clicked') },
+  { label: 'Set New Target', onClick: () => console.log('Set New Target clicked') },
 ]
+
 import VueApexCharts from 'vue3-apexcharts'
 
 const props = defineProps({
   value: {
     type: Number,
-    default: 75.55,
+    default: 85,
   },
 })
 
@@ -180,7 +185,7 @@ const chartOptions = {
           offsetY: 60,
           color: '#1D2939',
           formatter: function (val: number) {
-            return val.toFixed(2) + '%'
+            return val.toFixed(0) + '%'
           },
         },
       },

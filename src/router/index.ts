@@ -15,6 +15,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/memo',
+      name: 'Memo-Editor',
+      component: () => import('../components/memo/Editor.vue'),
+      meta: {
+        title: 'Memo Editor',
+      },
+    },
+    {
       path: '/calendar',
       name: 'Calendar',
       component: () => import('../views/Others/Calendar.vue'),

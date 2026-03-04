@@ -4,9 +4,9 @@
   >
     <div class="flex flex-col gap-5 mb-6 sm:flex-row sm:justify-between">
       <div class="w-full">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Statistics</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Memo Statistics</h3>
         <p class="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-          Target you’ve set for each month
+          Memo creation and approval trends
         </p>
       </div>
 
@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 
 const options = [
@@ -88,24 +88,91 @@ const flatpickrConfig = {
 }
 import VueApexCharts from 'vue3-apexcharts'
 
+// Watch for changes in selected period to update data (simulated)
+watch(selected, (newValue) => {
+  // In a real app, you would fetch new data based on the selected period
+  console.log('Period changed to:', newValue)
+  // Simulate data update based on period
+  if (newValue === 'optionOne') {
+    // Monthly data
+    series.value = [
+      {
+        name: 'Memos Created',
+        data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
+      },
+      {
+        name: 'Memos Approved',
+        data: [140, 150, 130, 120, 145, 135, 150, 185, 200, 180, 210, 195],
+      },
+    ]
+  } else if (newValue === 'optionTwo') {
+    // Quarterly data
+    series.value = [
+      {
+        name: 'Memos Created',
+        data: [520, 500, 560, 685],
+      },
+      {
+        name: 'Memos Approved',
+        data: [420, 400, 460, 585],
+      },
+    ]
+    // Update x-axis categories for quarterly
+    chartOptions.value = {
+      ...chartOptions.value,
+      xaxis: {
+        ...chartOptions.value.xaxis,
+        categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+      }
+    }
+  } else {
+    // Annual data
+    series.value = [
+      {
+        name: 'Memos Created',
+        data: [2265, 2450, 2680, 2920],
+      },
+      {
+        name: 'Memos Approved',
+        data: [1865, 2050, 2280, 2520],
+      },
+    ]
+    // Update x-axis categories for annual
+    chartOptions.value = {
+      ...chartOptions.value,
+      xaxis: {
+        ...chartOptions.value.xaxis,
+        categories: ['2023', '2024', '2025', '2026'],
+      }
+    }
+  }
+})
+
 const series = ref([
   {
-    name: 'Sales',
+    name: 'Memos Created',
     data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
   },
   {
-    name: 'Revenue',
-    data: [40, 30, 50, 40, 55, 40, 70, 100, 110, 120, 150, 140],
+    name: 'Memos Approved',
+    data: [140, 150, 130, 120, 145, 135, 150, 185, 200, 180, 210, 195],
   },
 ])
 
 const chartOptions = ref({
   legend: {
-    show: false,
+    show: true,
     position: 'top',
     horizontalAlign: 'left',
+    fontFamily: 'Outfit, sans-serif',
+    markers: {
+      radius: 99,
+    },
+    itemMargin: {
+      horizontal: 10,
+    },
   },
-  colors: ['#465FFF', '#9CB9FF'],
+  colors: ['#465FFF', '#10B981'],
   chart: {
     fontFamily: 'Outfit, sans-serif',
     type: 'area',
@@ -125,7 +192,10 @@ const chartOptions = ref({
     width: [2, 2],
   },
   markers: {
-    size: 0,
+    size: 4,
+    hover: {
+      size: 6,
+    },
   },
   labels: {
     show: false,
@@ -149,6 +219,11 @@ const chartOptions = ref({
   tooltip: {
     x: {
       format: 'dd MMM yyyy',
+    },
+    y: {
+      formatter: function (val) {
+        return val + ' memos'
+      },
     },
   },
   xaxis: {
@@ -179,8 +254,11 @@ const chartOptions = ref({
   },
   yaxis: {
     title: {
+      text: 'Number of Memos',
       style: {
-        fontSize: '0px',
+        fontSize: '12px',
+        fontWeight: 400,
+        color: '#6B7280',
       },
     },
   },
