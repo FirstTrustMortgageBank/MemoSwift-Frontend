@@ -206,7 +206,6 @@
           </div>
         </div>
       </nav>
-      <SidebarWidget v-if="isExpanded || isHovered || isMobileOpen" />
     </div>
   </aside>
 </template>
@@ -233,6 +232,9 @@ import {
 import SidebarWidget from "./SidebarWidget.vue";
 import BoxCubeIcon from "@/icons/BoxCubeIcon.vue";
 import { useSidebar } from "@/composables/useSidebar";
+import FolderIcon from "@/icons/FolderIcon.vue";
+import TaskIcon from "@/icons/TaskIcon.vue";
+import ArchiveIcon from "@/icons/ArchiveIcon.vue";
 
 const route = useRoute();
 
@@ -245,7 +247,10 @@ const menuGroups = [
       {
         icon: GridIcon,
         name: "Dashboard",
-        subItems: [{ name: "Main Dashboard", path: "/", pro: false }],
+        subItems: [
+          { name: "Main Dashboard", path: "/main-dashboard", pro: false },
+          { name: "Approval Dashboard", path: "/approval-dashboard", pro: false},
+        ],
       },
       {
         icon: PlugInIcon,
@@ -253,35 +258,34 @@ const menuGroups = [
         path: "/memo",
       },
       {
+        icon: FolderIcon,
+        name: "Memo-List",
+        path: "/memo-list",
+      },
+      {
+        icon: DocsIcon,
+        name: "Memo-Details",
+        path: "/memo/:id",
+      },
+      {
+        icon: TaskIcon,
+        name: "Template Management",
+        path: "/template-management",
+      },
+      {
         icon: CalenderIcon,
         name: "Calendar",
         path: "/calendar",
       },
       {
+        icon: ArchiveIcon,
+        name: "Archive Search",
+        path: "/archive-search",
+      },
+      {
         icon: UserCircleIcon,
         name: "User Profile",
         path: "/profile",
-      },
-
-      {
-        name: "Forms",
-        icon: ListIcon,
-        subItems: [
-          { name: "Form Elements", path: "/form-elements", pro: false },
-        ],
-      },
-      {
-        name: "Tables",
-        icon: TableIcon,
-        subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-      },
-      {
-        name: "Pages",
-        icon: PageIcon,
-        subItems: [
-          { name: "Black Page", path: "/blank", pro: false },
-          { name: "404 Page", path: "/error-404", pro: false },
-        ],
       },
     ],
   },
@@ -296,27 +300,6 @@ const menuGroups = [
           { name: "Bar Chart", path: "/bar-chart", pro: false },
         ],
       },
-      {
-        icon: BoxCubeIcon,
-        name: "Ui Elements",
-        subItems: [
-          { name: "Alerts", path: "/alerts", pro: false },
-          { name: "Avatars", path: "/avatars", pro: false },
-          { name: "Badge", path: "/badge", pro: false },
-          { name: "Buttons", path: "/buttons", pro: false },
-          { name: "Images", path: "/images", pro: false },
-          { name: "Videos", path: "/videos", pro: false },
-        ],
-      },
-      {
-        icon: PlugInIcon,
-        name: "Authentication",
-        subItems: [
-          { name: "Signin", path: "/signin", pro: false },
-          { name: "Signup", path: "/signup", pro: false },
-        ],
-      },
-      // ... Add other menu items here
     ],
   },
 ];

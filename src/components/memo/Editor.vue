@@ -634,7 +634,7 @@ const approvalStatusClass = computed(() => {
 
 // Methods
 const goToDashboard = () => {
-  router.push('/') // Adjust path as needed
+  router.push('/main-dashboard') // Adjust path as needed
 }
 
 const toggleMenu = (menu) => {

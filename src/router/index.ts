@@ -8,10 +8,26 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      name: 'Signin',
+      component: () => import('../views/Auth/Signin.vue'),
+      meta: {
+        title: 'Signin',
+      },
+    },
+    {
+      path: '/main-dashboard',
       name: 'Ecommerce',
       component: () => import('../views/Ecommerce.vue'),
       meta: {
         title: 'Main Dashboard',
+      },
+    },
+    {
+      path: '/approval-dashboard',
+      name: 'Approval-Dashboard',
+      component: () => import('../views/User/ApprovalDashboard.vue'),
+      meta: {
+        title: 'Approval Dashboard',
       },
     },
     {
@@ -20,6 +36,35 @@ const router = createRouter({
       component: () => import('../components/memo/Editor.vue'),
       meta: {
         title: 'Memo Editor',
+      },
+    },
+    {
+      path: '/memo-list',
+      name: 'Memo-List',
+      component: () => import('../views/User/MemoList.vue'),
+      meta: {
+        title: 'Memo List',
+      },
+    },
+    {
+      path: '/memo/:id',
+      name: 'Memo-Detail',
+      component: () => import('../views/User/MemoDetail.vue'),
+      meta: {
+        title: 'Memo Detail',
+      },
+    },
+    {
+      path: '/template-management',
+      name: 'Template-Management',
+      component: () => import('../views/User/TemplatesManagement.vue'),
+    },
+    {
+      path: '/archive-search',
+      name: 'Archive Search',
+      component: () => import('../views/User/ArchiveSearch.vue'),
+       meta: {
+        title: 'Archive Search',
       },
     },
     {
@@ -129,15 +174,6 @@ const router = createRouter({
       component: () => import('../views/Errors/FourZeroFour.vue'),
       meta: {
         title: '404 Error',
-      },
-    },
-
-    {
-      path: '/signin',
-      name: 'Signin',
-      component: () => import('../views/Auth/Signin.vue'),
-      meta: {
-        title: 'Signin',
       },
     },
     {
