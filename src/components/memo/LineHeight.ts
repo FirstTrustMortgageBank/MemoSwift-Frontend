@@ -1,4 +1,4 @@
-import { Extension } from '@tiptap/core'
+import { Extension, type RawCommands } from '@tiptap/core'
 
 export const LineHeight = Extension.create({
   name: 'lineHeight',
@@ -34,16 +34,16 @@ export const LineHeight = Extension.create({
 
   addCommands() {
     return {
-      setLineHeight: (height) => ({ commands }) => {
+      setLineHeight: (height: string) => ({ commands }: any): boolean => {
         return this.options.types.every((type: string) => 
           commands.updateAttributes(type, { lineHeight: height })
         )
       },
-      unsetLineHeight: () => ({ commands }) => {
+      unsetLineHeight: () => ({ commands }: any): boolean => {
         return this.options.types.every((type: string) => 
           commands.resetAttributes(type, 'lineHeight')
         )
       },
-    }
+    } as Partial<RawCommands>
   },
 })

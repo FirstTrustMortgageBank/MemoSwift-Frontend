@@ -4,11 +4,15 @@
       class="flex items-center text-gray-700 dark:text-gray-400"
       @click.prevent="toggleDropdown"
     >
-      <span class="mr-3 overflow-hidden rounded-full h-11 w-11">
-        <img src="/images/user/owner.jpg" alt="User" />
+      <span class="mr-3 flex items-center justify-center overflow-hidden rounded-full h-11 w-11 bg-gray-800 text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 12v4" />
+        </svg>
       </span>
 
-      <span class="block mr-1 font-medium text-theme-sm">Musharof </span>
+      <span class="block mr-1 font-medium text-theme-sm">Taofeek </span>
 
       <ChevronDownIcon :class="{ 'rotate-180': dropdownOpen }" />
     </button>
@@ -20,10 +24,10 @@
     >
       <div>
         <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-          Musharof Chowdhury
+          Taofeek Adekola
         </span>
         <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-          randomuser@pimjo.com
+          Bolaji.Adekola@ftmortgagebankplc.com
         </span>
       </div>
 

@@ -11,6 +11,7 @@ export default defineConfig({
     vue(),
     vueJsx(),
   ],
+  assetsInclude: ['**/*.doc', '**/*.docx', '**/*.pdf'],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

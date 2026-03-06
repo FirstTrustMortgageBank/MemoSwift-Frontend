@@ -1,5 +1,11 @@
 <template>
   <div class="memo-editor-container">
+    <!-- Loading overlay while loading DOCX -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>Loading memo template...</p>
+    </div>
+
     <!-- Menubar -->
     <div class="menubar">
       <!-- File Menu -->
@@ -271,14 +277,22 @@
              fontSize: fontSize + 'px', 
              lineHeight 
            }">
-        <editor-content :editor="editor" class="editor-content" />
+        <editor-content v-if="editor" :editor="editor" class="editor-content" />
+        <div v-else class="editor-placeholder">
+          <p>Loading document...</p>
+        </div>
       </div>
     </div>
 
     <!-- Status Bar -->
     <div class="status-bar">
       <div>Words: {{ wordCount }} | Characters: {{ charCount }}</div>
-      <div>{{ editor?.isEditable ? 'Editing' : 'Read Only' }} | Page 1 of {{ pageCount }}</div>
+      <div class="status-right">
+        <span v-if="documentInfo" class="document-indicator">
+          📄 {{ documentInfo }}
+        </span>
+        <span>{{ editor?.isEditable ? 'Editing' : 'Read Only' }} | Page 1 of {{ pageCount }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -298,6 +312,11 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
 import { Extension } from '@tiptap/core'
+import * as mammoth from 'mammoth'
+
+// Import the DOCX file (adjust the path to your actual file)
+// Use ?url to import as a URL
+import defaultTemplate from '@/assets/templates/memo-template.docx?url'
 
 // Custom extension for line height
 const LineHeight = Extension.create({
@@ -340,9 +359,11 @@ const fontFamily = ref('Century Gothic')
 const fontSize = ref(12)
 const headingLevel = ref('0')
 const lineHeight = ref('1.5')
+const isLoading = ref(true)
+const documentInfo = ref('Loading template...')
 
 const editor = useEditor({
-  content: '<p>Start typing your memo here...</p>',
+  content: '<p>Loading memo template...</p>',
   extensions: [
     StarterKit,
     Underline,
@@ -373,6 +394,7 @@ const editor = useEditor({
       class: 'focus:outline-none',
     },
   },
+  immediatelyRender: false,
 })
 
 // Computed
@@ -391,17 +413,128 @@ const pageCount = computed(() => 1)
 
 const isDark = computed(() => document.documentElement.classList.contains('dark'))
 
+// Load DOCX template function
+const loadDocxTemplate = async (fileUrl) => {
+  try {
+    isLoading.value = true
+    documentInfo.value = 'Loading template...'
+    
+    // Fetch the DOCX file
+    const response = await fetch(fileUrl)
+    const arrayBuffer = await response.arrayBuffer()
+    
+    // Convert DOCX to HTML using mammoth
+    const result = await mammoth.convertToHtml({ arrayBuffer }, {
+      styleMap: [
+        "p[style-name='Heading 1'] => h1",
+        "p[style-name='Heading 2'] => h2",
+        "p[style-name='Heading 3'] => h3",
+        "p[style-name='Title'] => h1:fresh",
+        "p[style-name='Subtitle'] => h2:fresh",
+        "r[style-name='Strong'] => strong",
+        "r[style-name='Emphasis'] => em",
+      ],
+      includeDefaultStyleMap: true,
+      convertImage: mammoth.images.imgElement(function(element) {
+        return element.read("base64").then(function(imageBuffer) {
+          return {
+            src: "data:" + element.contentType + ";base64," + imageBuffer
+          };
+        });
+      })
+    })
+    
+    // Get the HTML content
+    let html = result.value
+    
+    // Wrap in a container if needed
+    html = `<div class="memo-content">${html}</div>`
+    
+    // Set the content in the editor
+    if (editor.value) {
+      editor.value.commands.setContent(html)
+    }
+    
+    // Extract document name from URL
+    const fileName = fileUrl.split('/').pop() || 'memo-template.docx'
+    documentInfo.value = fileName
+    
+    console.log('DOCX loaded successfully', result.messages)
+    
+  } catch (error) {
+    console.error('Error loading DOCX template:', error)
+    documentInfo.value = 'Error loading template'
+    
+    // Fallback content if loading fails
+    if (editor.value) {
+      editor.value.commands.setContent(`
+        <h1 style="text-align: center;">MEMORANDUM</h1>
+        <p><strong>Error loading template:</strong> ${error.message}</p>
+        <p>Please check that the template file exists and try again.</p>
+      `)
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Alternative method to load DOCX from file input
+const loadDocxFromFile = async (file) => {
+  try {
+    isLoading.value = true
+    documentInfo.value = file.name
+    
+    const arrayBuffer = await file.arrayBuffer()
+    
+    const result = await mammoth.convertToHtml({ arrayBuffer }, {
+      styleMap: [
+        "p[style-name='Heading 1'] => h1",
+        "p[style-name='Heading 2'] => h2",
+        "p[style-name='Heading 3'] => h3",
+      ],
+      includeDefaultStyleMap: true,
+    })
+    
+    let html = result.value
+    html = `<div class="memo-content">${html}</div>`
+    
+    if (editor.value) {
+      editor.value.commands.setContent(html)
+    }
+    
+  } catch (error) {
+    console.error('Error loading DOCX file:', error)
+    documentInfo.value = 'Error loading file'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 // Methods
 const toggleMenu = (menu) => {
   activeMenu.value = activeMenu.value === menu ? null : menu
 }
 
 const handleNew = () => {
-  editor.value?.commands.clearContent()
-  activeMenu.value = null
+  if (confirm('Clear current memo and start a new one?')) {
+    editor.value?.commands.clearContent()
+    editor.value?.commands.setContent('<p>Start typing your memo here...</p>')
+    documentInfo.value = 'New document'
+    activeMenu.value = null
+  }
 }
 
 const handleOpen = () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.docx,.doc'
+  input.onchange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      loadDocxFromFile(file)
+    }
+  }
+  input.click()
   activeMenu.value = null
 }
 
@@ -413,20 +546,25 @@ const handleSave = () => {
 
 const handleSaveAs = () => {
   const content = editor.value?.getHTML()
+  const filename = documentInfo.value?.replace('.docx', '') || 'memo'
+  const fullFilename = `${filename}-${new Date().toISOString().slice(0, 10)}.html`
+  
   const blob = new Blob([content], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'memo.html'
+  a.download = fullFilename
   a.click()
   activeMenu.value = null
 }
 
 const handleExportPDF = async () => {
+  alert('PDF export functionality coming soon')
   activeMenu.value = null
 }
 
-const handleExportDOCX = () => {
+const handleExportDOCX = async () => {
+  alert('DOCX export functionality coming soon')
   activeMenu.value = null
 }
 
@@ -520,8 +658,12 @@ const insertHorizontalRule = () => {
   editor.value?.chain().focus().setHorizontalRule().run()
 }
 
-// Click outside to close menus
+// Load the default template on component mount
 onMounted(() => {
+  // Load the default DOCX template
+  loadDocxTemplate(defaultTemplate)
+  
+  // Click outside to close menus
   document.addEventListener('click', () => {
     activeMenu.value = null
     showColorPicker.value = false
@@ -543,6 +685,10 @@ onMounted(() => {
   border-radius: 1rem;
   border: 1px solid var(--color-gray-200);
   overflow: hidden;
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .dark .memo-editor-container {
@@ -650,6 +796,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+  align-items: center;
 }
 
 .dark .toolbar {
@@ -702,6 +849,7 @@ onMounted(() => {
   background-color: var(--color-white);
   color: var(--color-gray-700);
   cursor: pointer;
+  outline: none;
 }
 
 .dark .toolbar-select {
@@ -825,7 +973,8 @@ onMounted(() => {
   overflow: auto;
   padding: 2rem;
   background-color: var(--color-gray-100);
-  height: calc(100vh - 200px);
+  flex: 1;
+  min-height: 0;
 }
 
 .dark .editor-scroll-container {
@@ -940,6 +1089,7 @@ onMounted(() => {
   color: var(--color-gray-600);
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 .dark .status-bar {
@@ -948,13 +1098,93 @@ onMounted(() => {
   color: var(--color-gray-400);
 }
 
+/* Loading Overlay */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.dark .loading-overlay {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--color-brand-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-overlay p {
+  color: var(--color-gray-700);
+  font-size: 0.875rem;
+}
+
+.dark .loading-overlay p {
+  color: var(--color-gray-300);
+}
+
+/* Status Bar Document Indicator */
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.document-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background-color: var(--color-brand-50);
+  color: var(--color-brand-600);
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .document-indicator {
+  background-color: var(--color-brand-500/10);
+  color: var(--color-brand-400);
+}
+
+/* Editor placeholder */
+.editor-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-gray-400);
+  font-style: italic;
+}
+
 /* Print Styles */
 @media print {
   .menubar,
   .toolbar,
   .ruler,
   .status-bar,
-  .editor-scroll-container {
+  .loading-overlay {
     display: none !important;
   }
   
@@ -962,6 +1192,11 @@ onMounted(() => {
     box-shadow: none;
     margin: 0;
     padding: 0.5in;
+  }
+  
+  .editor-scroll-container {
+    padding: 0;
+    background: white;
   }
 }
 </style>
