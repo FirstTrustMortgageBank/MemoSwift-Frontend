@@ -31,14 +31,14 @@
         <img
           v-if="isExpanded || isHovered || isMobileOpen"
           class="hidden dark:block"
-          src="/images/logo/logo-dark.svg"
+          src="/images/logo/logo.svg"
           alt="Logo"
           width="150"
           height="40"
         />
         <img
           v-else
-          src="/images/logo/logo-icon.svg"
+          src="/images/logo/logo.svg"
           alt="Logo"
           width="32"
           height="32"
@@ -273,6 +273,11 @@ const menuGroups = [
         path: "/template-management",
       },
       {
+        icon: DocsIcon,
+        name: "Document Collaboration",
+        path: "/document-collaboration",
+      },
+      {
         icon: CalenderIcon,
         name: "Calendar",
         path: "/calendar",
@@ -284,7 +289,7 @@ const menuGroups = [
       },
       {
         icon: UserCircleIcon,
-        name: "User Profile",
+        name: "Profile",
         path: "/profile",
       },
     ],
@@ -293,12 +298,9 @@ const menuGroups = [
     title: "Others",
     items: [
       {
-        icon: PieChartIcon,
-        name: "Charts",
-        subItems: [
-          { name: "Line Chart", path: "/line-chart", pro: false },
-          { name: "Bar Chart", path: "/bar-chart", pro: false },
-        ],
+        icon: ChatIcon,
+        name: "Chat",
+        path: "/chat",
       },
     ],
   },
