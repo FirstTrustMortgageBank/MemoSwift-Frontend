@@ -4,15 +4,11 @@
       class="flex items-center text-gray-700 dark:text-gray-400"
       @click.prevent="toggleDropdown"
     >
-      <span class="mr-3 flex items-center justify-center overflow-hidden rounded-full h-11 w-11 bg-gray-800 text-white">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 12v4" />
-        </svg>
+      <span class="mr-3 flex items-center justify-center overflow-hidden rounded-full h-11 w-11 bg-gradient-to-br from-brand-500 to-brand-600 text-white font-medium text-lg">
+        {{ userInitials }}
       </span>
 
-      <span class="block mr-1 font-medium text-theme-sm">Taofeek </span>
+      <span class="block mr-1 font-medium text-theme-sm">{{ userFirstName }}</span>
 
       <ChevronDownIcon :class="{ 'rotate-180': dropdownOpen }" />
     </button>
@@ -24,10 +20,13 @@
     >
       <div>
         <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-          Taofeek Adekola
+          {{ userFullName }}
         </span>
         <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-          Bolaji.Adekola@ftmortgagebankplc.com
+          {{ userEmail }}
+        </span>
+        <span v-if="userRole" class="mt-1 inline-block px-2 py-0.5 text-theme-xs font-medium rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+          {{ userRole }}
         </span>
       </div>
 
@@ -36,8 +35,8 @@
           <router-link
             :to="item.href"
             class="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+            @click="closeDropdown"
           >
-            <!-- SVG icon would go here -->
             <component
               :is="item.icon"
               class="text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300"
@@ -47,7 +46,7 @@
         </li>
       </ul>
       <router-link
-        to="/signin"
+        to="/"
         @click="signOut"
         class="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
       >
@@ -63,18 +62,68 @@
 
 <script setup>
 import { UserCircleIcon, ChevronDownIcon, LogoutIcon, SettingsIcon, InfoCircleIcon } from '@/icons'
-import { RouterLink } from 'vue-router'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 
+const router = useRouter()
 const dropdownOpen = ref(false)
 const dropdownRef = ref(null)
 
+// ========== USER DATA FROM LOCAL STORAGE ==========
+// Parse user from localStorage (with error handling)
+const getUserFromStorage = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  } catch (error) {
+    console.error('Error parsing user from localStorage:', error)
+    return null
+  }
+}
+
+// Reactive user data
+const user = ref(getUserFromStorage())
+
+// Computed properties for user display
+const userFullName = computed(() => {
+  return user.value?.username
+})
+
+const userFirstName = computed(() => {
+  const fullName = userFullName.value
+  return fullName.split(' ')[0] || 'User'
+})
+
+const userEmail = computed(() => {
+  return user.value?.email || 'No email'
+})
+
+const userRole = computed(() => {
+  const roles = user.value?.roles
+  if (Array.isArray(roles) && roles.length > 0) {
+    return roles[0].charAt(0).toUpperCase() + roles[0].slice(1)
+  }
+  return null
+})
+
+const userInitials = computed(() => {
+  const name = userFullName.value
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+})
+
+// ========== MENU ITEMS ==========
 const menuItems = [
   { href: '/profile', icon: UserCircleIcon, text: 'Edit profile' },
-  { href: '/chat', icon: SettingsIcon, text: 'Account settings' },
-  { href: '/profile', icon: InfoCircleIcon, text: 'Support' },
+  { href: '/settings', icon: SettingsIcon, text: 'Account settings' },
+  { href: '/support', icon: InfoCircleIcon, text: 'Support' },
 ]
 
+// ========== DROPDOWN ACTIONS ==========
 const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value
 }
@@ -84,22 +133,42 @@ const closeDropdown = () => {
 }
 
 const signOut = () => {
-  // Implement sign out logic here
-  console.log('Signing out...')
+  // Clear all auth data from localStorage
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('id')
+  
+  // Clear user ref
+  user.value = null
+  
+  // Close dropdown
   closeDropdown()
+  
+  // Redirect to login page
+  router.push('/login')
+  
+  console.log('Signed out successfully')
 }
 
+// ========== CLICK OUTSIDE HANDLER ==========
 const handleClickOutside = (event) => {
   if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
     closeDropdown()
   }
 }
 
+// ========== WATCH FOR STORAGE CHANGES ==========
+const handleStorageChange = () => {
+  user.value = getUserFromStorage()
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('storage', handleStorageChange) // Listen for storage changes from other tabs
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('storage', handleStorageChange)
 })
 </script>

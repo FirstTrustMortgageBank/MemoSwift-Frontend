@@ -3,28 +3,42 @@
     <div class="p-5 mb-6 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div class="flex flex-col items-center w-full gap-6 xl:flex-row">
-          <div
-            class="w-20 h-20 overflow-hidden border border-gray-200 rounded-full dark:border-gray-800"
-          >
-            <img src="/images/user/owner.jpg" alt="user" />
+          <!-- Profile Picture Section with Initials -->
+          <div class="flex flex-col items-center gap-3 lg:items-end">
+            <div class="relative">
+              <div class="flex items-center justify-center w-24 h-24 overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white text-3xl font-semibold shadow-lg">
+                {{ userInitials }}
+              </div>
+              <button 
+                @click="isProfilePictureModal = true" 
+                class="absolute bottom-0 right-0 flex items-center justify-center w-8 h-8 bg-white rounded-full shadow-md hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+                title="Change profile picture"
+              >
+                <svg class="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                </svg>
+              </button>
+            </div>
+            <span class="text-sm text-gray-500 dark:text-gray-400">Profile Picture</span>
           </div>
           <div class="order-3 xl:order-2">
             <h4
               class="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left"
             >
-              Taofeek Adekola
+              {{ userFullName }}
             </h4>
             <div
               class="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left"
             >
-              <p class="text-sm text-gray-500 dark:text-gray-400">Team Manager</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ userRole || 'Team Member' }}</p>
               <div class="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Arizona, United States</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ userLocation || 'Location not set' }}</p>
             </div>
           </div>
           <div class="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
             <a
-              href="https://www.facebook.com/PimjoHQ"
+              v-if="socialLinks.facebook"
+              :href="socialLinks.facebook"
               target="_blank"
               rel="noopener"
               class="social-button"
@@ -43,7 +57,13 @@
                 />
               </svg>
             </a>
-            <a href="https://x.com/PimjoHQ" target="_blank" rel="noopener" class="social-button">
+            <a
+              v-if="socialLinks.x"
+              :href="socialLinks.x"
+              target="_blank"
+              rel="noopener"
+              class="social-button"
+            >
               <svg
                 class="fill-current"
                 width="20"
@@ -59,7 +79,8 @@
               </svg>
             </a>
             <a
-              href="https://www.linkedin.com/company/pimjo/"
+              v-if="socialLinks.linkedin"
+              :href="socialLinks.linkedin"
               target="_blank"
               rel="noopener"
               class="social-button"
@@ -79,7 +100,8 @@
               </svg>
             </a>
             <a
-              href="https://www.instagram.com/PimjoHQ"
+              v-if="socialLinks.instagram"
+              :href="socialLinks.instagram"
               target="_blank"
               rel="noopener"
               class="social-button"
@@ -120,6 +142,97 @@
         </button>
       </div>
     </div>
+
+    <!-- Profile Picture Change Modal -->
+    <Modal v-if="isProfilePictureModal" @close="isProfilePictureModal = false">
+      <template #body>
+        <div
+          class="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-8"
+        >
+          <!-- close btn -->
+          <button
+            @click="isProfilePictureModal = false"
+            class="transition-color absolute right-5 top-5 z-999 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/[0.07] dark:hover:text-gray-300"
+          >
+            <svg
+              class="fill-current"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M6.04289 16.5418C5.65237 16.9323 5.65237 17.5655 6.04289 17.956C6.43342 18.3465 7.06658 18.3465 7.45711 17.956L11.9987 13.4144L16.5408 17.9565C16.9313 18.347 17.5645 18.347 17.955 17.9565C18.3455 17.566 18.3455 16.9328 17.955 16.5423L13.4129 12.0002L17.955 7.45808C18.3455 7.06756 18.3455 6.43439 17.955 6.04387C17.5645 5.65335 16.9313 5.65335 16.5408 6.04387L11.9987 10.586L7.45711 6.04439C7.06658 5.65386 6.43342 5.65386 6.04289 6.04439C5.65237 6.43491 5.65237 7.06808 6.04289 7.4586L10.5845 12.0002L6.04289 16.5418Z"
+                fill=""
+              />
+            </svg>
+          </button>
+          
+          <div class="px-2">
+            <h4 class="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Change Profile Picture
+            </h4>
+            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+              Upload a new profile picture or choose from initials
+            </p>
+          </div>
+
+          <div class="flex flex-col items-center p-6">
+            <!-- Current Picture Preview -->
+            <div class="flex items-center justify-center w-32 h-32 mb-6 overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white text-4xl font-semibold shadow-lg">
+              {{ userInitials }}
+            </div>
+
+            <!-- Upload Options -->
+            <div class="w-full space-y-4">
+              <div class="flex flex-col gap-3">
+                <button
+                  @click="triggerFileUpload"
+                  class="flex items-center justify-center w-full gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 hover:bg-brand-600"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                  </svg>
+                  Upload New Picture
+                </button>
+                
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleFileUpload"
+                />
+
+                <button
+                  @click="useInitials"
+                  class="flex items-center justify-center w-full gap-2 px-4 py-3 text-sm font-medium text-gray-700 transition border border-gray-300 rounded-lg bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                  </svg>
+                  Keep Using Initials
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-2 mt-6">
+            <button
+              @click="isProfilePictureModal = false"
+              type="button"
+              class="px-4 py-2.5 text-sm font-medium text-gray-700 transition border border-gray-300 rounded-lg bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </template>
+    </Modal>
+    
     <Modal v-if="isProfileInfoModal" @close="isProfileInfoModal = false">
       <template #body>
         <div
@@ -154,7 +267,7 @@
               Update your details to keep your profile up-to-date.
             </p>
           </div>
-          <form class="flex flex-col">
+          <form class="flex flex-col" @submit.prevent="saveProfile">
             <div class="custom-scrollbar h-[458px] overflow-y-auto p-2">
               <div>
                 <h5 class="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
@@ -169,8 +282,9 @@
                       Facebook
                     </label>
                     <input
+                      v-model="profileForm.facebook"
                       type="text"
-                      value="https://www.facebook.com/PimjoHQ"
+                      placeholder="https://facebook.com/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -182,8 +296,9 @@
                       X.com
                     </label>
                     <input
+                      v-model="profileForm.x"
                       type="text"
-                      value="https://x.com/PimjoHQ"
+                      placeholder="https://x.com/your-handle"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -195,8 +310,9 @@
                       Linkedin
                     </label>
                     <input
+                      v-model="profileForm.linkedin"
                       type="text"
-                      value="https://www.linkedin.com/company/pimjo/posts/?feedView=all"
+                      placeholder="https://linkedin.com/in/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -208,8 +324,9 @@
                       Instagram
                     </label>
                     <input
+                      v-model="profileForm.instagram"
                       type="text"
-                      value="https://instagram.com/PimjoHQ"
+                      placeholder="https://instagram.com/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -228,8 +345,9 @@
                       First Name
                     </label>
                     <input
+                      v-model="profileForm.firstName"
                       type="text"
-                      value="Taofeek"
+                      placeholder="First name"
                       class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -241,8 +359,9 @@
                       Last Name
                     </label>
                     <input
+                      v-model="profileForm.lastName"
                       type="text"
-                      value="Adekola"
+                      placeholder="Last name"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -254,8 +373,9 @@
                       Email Address
                     </label>
                     <input
-                      type="text"
-                      value="Bolaji.Adekola@ftmortgagebankplc.com"
+                      v-model="profileForm.email"
+                      type="email"
+                      placeholder="your.email@example.com"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -267,8 +387,9 @@
                       Phone
                     </label>
                     <input
-                      type="text"
-                      value="+09 363 398 46"
+                      v-model="profileForm.phone"
+                      type="tel"
+                      placeholder="+1234567890"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -280,8 +401,9 @@
                       Bio
                     </label>
                     <input
+                      v-model="profileForm.bio"
                       type="text"
-                      value="Team Manager"
+                      placeholder="Your bio"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -297,8 +419,7 @@
                 Close
               </button>
               <button
-                @click="saveProfile"
-                type="button"
+                type="submit"
                 class="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
               >
                 Save Changes
@@ -312,14 +433,206 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Modal from './Modal.vue'
 
+// ========== USER DATA FROM LOCAL STORAGE ==========
+const getUserFromStorage = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  } catch (error) {
+    console.error('Error parsing user from localStorage:', error)
+    return null
+  }
+}
+
+const user = ref(getUserFromStorage())
+const fileInput = ref(null)
+const isProfilePictureModal = ref(false)
 const isProfileInfoModal = ref(false)
 
-const saveProfile = () => {
-  // Implement save profile logic here
-  console.log('Profile saved')
-  isProfileInfoModal.value = false
+// Computed properties for display
+const userFullName = computed(() => {
+  return user.value?.displayName || user.value?.name || user.value?.username || 'User'
+})
+
+const userFirstName = computed(() => {
+  const fullName = userFullName.value
+  return fullName.split(' ')[0] || 'User'
+})
+
+const userLastName = computed(() => {
+  const fullName = userFullName.value
+  const parts = fullName.split(' ')
+  return parts.length > 1 ? parts.slice(1).join(' ') : ''
+})
+
+const userInitials = computed(() => {
+  const firstName = userFirstName.value
+  const lastName = userLastName.value
+  
+  if (firstName === 'User' && !lastName) {
+    return 'U'
+  }
+  
+  const firstInitial = firstName ? firstName.charAt(0) : ''
+  const lastInitial = lastName ? lastName.charAt(0) : ''
+  
+  return (firstInitial + lastInitial).toUpperCase() || 'U'
+})
+
+const userEmail = computed(() => {
+  return user.value?.email || 'No email'
+})
+
+const userPhone = computed(() => {
+  return user.value?.phone || ''
+})
+
+const userBio = computed(() => {
+  return user.value?.bio || ''
+})
+
+const userRole = computed(() => {
+  const roles = user.value?.roles
+  if (Array.isArray(roles) && roles.length > 0) {
+    return roles[0].charAt(0).toUpperCase() + roles[0].slice(1)
+  }
+  return user.value?.role || 'Team Member'
+})
+
+const userLocation = computed(() => {
+  return user.value?.location || 'Location not set'
+})
+
+const socialLinks = computed(() => {
+  return {
+    facebook: user.value?.social?.facebook || '',
+    x: user.value?.social?.x || '',
+    linkedin: user.value?.social?.linkedin || '',
+    instagram: user.value?.social?.instagram || ''
+  }
+})
+
+// ========== PROFILE EDIT FORM ==========
+const profileForm = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  bio: '',
+  location: '',
+  role: '',
+  facebook: '',
+  x: '',
+  linkedin: '',
+  instagram: ''
+})
+
+// Update form when user data changes or modal opens
+const updateFormFromUser = () => {
+  const fullName = userFullName.value
+  const nameParts = fullName.split(' ')
+  
+  profileForm.value = {
+    firstName: nameParts[0] || '',
+    lastName: nameParts.slice(1).join(' ') || '',
+    email: user.value?.email || '',
+    phone: user.value?.phone || '',
+    bio: user.value?.bio || '',
+    location: user.value?.location || '',
+    role: user.value?.role || '',
+    facebook: user.value?.social?.facebook || '',
+    x: user.value?.social?.x || '',
+    linkedin: user.value?.social?.linkedin || '',
+    instagram: user.value?.social?.instagram || ''
+  }
 }
+
+// ========== PROFILE PICTURE METHODS ==========
+const triggerFileUpload = () => {
+  fileInput.value?.click()
+}
+
+const handleFileUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    // Here you would upload the file to your server
+    console.log('File selected:', file.name)
+    // After upload, update user profile with new image URL
+    alert('File upload functionality - would upload to server')
+    isProfilePictureModal.value = false
+  }
+}
+
+const useInitials = () => {
+  // Remove any profile picture and use initials
+  const updatedUser = {
+    ...user.value,
+    profilePicture: null
+  }
+  localStorage.setItem('user', JSON.stringify(updatedUser))
+  user.value = updatedUser
+  isProfilePictureModal.value = false
+  alert('Now using initials as profile picture')
+}
+
+// ========== SAVE PROFILE ==========
+const saveProfile = async () => {
+  try {
+    // In a real app, you would call your API here
+    // const token = JSON.parse(localStorage.getItem('token') || '{}')
+    // const response = await axios.put('/api/v1/users/profile', profileForm.value, {
+    //   headers: { Authorization: `Bearer ${token}` }
+    // })
+    
+    // For now, just update localStorage
+    const updatedUser = {
+      ...user.value,
+      displayName: `${profileForm.value.firstName} ${profileForm.value.lastName}`.trim(),
+      name: `${profileForm.value.firstName} ${profileForm.value.lastName}`.trim(),
+      email: profileForm.value.email,
+      phone: profileForm.value.phone,
+      bio: profileForm.value.bio,
+      location: profileForm.value.location,
+      role: profileForm.value.role,
+      social: {
+        facebook: profileForm.value.facebook,
+        x: profileForm.value.x,
+        linkedin: profileForm.value.linkedin,
+        instagram: profileForm.value.instagram
+      }
+    }
+    
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    user.value = updatedUser
+    
+    console.log('Profile saved:', profileForm.value)
+    isProfileInfoModal.value = false
+    
+    // Show success message (you can implement a toast notification)
+    alert('Profile updated successfully!')
+  } catch (error) {
+    console.error('Error saving profile:', error)
+    alert('Failed to save profile. Please try again.')
+  }
+}
+
+// Listen for storage changes from other tabs
+const handleStorageChange = () => {
+  user.value = getUserFromStorage()
+  updateFormFromUser()
+}
+
+// Watch for modal open to populate form
+onMounted(() => {
+  updateFormFromUser()
+  window.addEventListener('storage', handleStorageChange)
+})
+
+// Clean up event listeners
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
 </script>

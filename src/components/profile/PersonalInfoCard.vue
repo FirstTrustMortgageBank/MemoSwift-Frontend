@@ -10,31 +10,38 @@
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             <div>
               <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">First Name</p>
-              <p class="text-sm font-medium text-gray-800 dark:text-white/90">Taofeek</p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ userFirstName }}</p>
             </div>
 
             <div>
               <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Last Name</p>
-              <p class="text-sm font-medium text-gray-800 dark:text-white/90">Adekola</p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ userLastName }}</p>
             </div>
 
             <div>
               <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Email address
               </p>
-              <p class="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
-              </p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ userEmail }}</p>
             </div>
 
             <div>
               <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Phone</p>
-              <p class="text-sm font-medium text-gray-800 dark:text-white/90">+09 363 398 46</p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ userPhone || 'Not provided' }}</p>
             </div>
 
             <div>
               <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Bio</p>
-              <p class="text-sm font-medium text-gray-800 dark:text-white/90">Team Manager</p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ userBio || 'Not provided' }}</p>
+            </div>
+            
+            <div>
+              <p class="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Role</p>
+              <p class="text-sm font-medium text-gray-800 dark:text-white/90">
+                <span class="inline-block px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                  {{ userRole || 'Staff' }}
+                </span>
+              </p>
             </div>
           </div>
         </div>
@@ -59,6 +66,7 @@
         </button>
       </div>
     </div>
+    
     <Modal v-if="isProfileInfoModal" @close="isProfileInfoModal = false">
       <template #body>
         <div
@@ -93,7 +101,7 @@
               Update your details to keep your profile up-to-date.
             </p>
           </div>
-          <form class="flex flex-col">
+          <form class="flex flex-col" @submit.prevent="saveProfile">
             <div class="custom-scrollbar h-[458px] overflow-y-auto p-2">
               <div>
                 <h5 class="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
@@ -108,8 +116,9 @@
                       Facebook
                     </label>
                     <input
+                      v-model="profileForm.facebook"
                       type="text"
-                      value="https://www.facebook.com/PimjoHQ"
+                      placeholder="https://facebook.com/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -121,8 +130,9 @@
                       X.com
                     </label>
                     <input
+                      v-model="profileForm.x"
                       type="text"
-                      value="https://x.com/PimjoHQ"
+                      placeholder="https://x.com/your-handle"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -134,8 +144,9 @@
                       Linkedin
                     </label>
                     <input
+                      v-model="profileForm.linkedin"
                       type="text"
-                      value="https://www.linkedin.com/company/pimjo/posts/?feedView=all"
+                      placeholder="https://linkedin.com/in/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -147,8 +158,9 @@
                       Instagram
                     </label>
                     <input
+                      v-model="profileForm.instagram"
                       type="text"
-                      value="https://instagram.com/PimjoHQ"
+                      placeholder="https://instagram.com/your-profile"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -167,8 +179,9 @@
                       First Name
                     </label>
                     <input
+                      v-model="profileForm.firstName"
                       type="text"
-                      value="Taofeek"
+                      placeholder="First name"
                       class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -180,8 +193,9 @@
                       Last Name
                     </label>
                     <input
+                      v-model="profileForm.lastName"
                       type="text"
-                      value="Chowdhury"
+                      placeholder="Last name"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -193,8 +207,9 @@
                       Email Address
                     </label>
                     <input
-                      type="text"
-                      value="emirhanboruch55@gmail.com"
+                      v-model="profileForm.email"
+                      type="email"
+                      placeholder="your.email@example.com"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -206,8 +221,9 @@
                       Phone
                     </label>
                     <input
-                      type="text"
-                      value="+09 363 398 46"
+                      v-model="profileForm.phone"
+                      type="tel"
+                      placeholder="+1234567890"
                       class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     />
                   </div>
@@ -218,11 +234,12 @@
                     >
                       Bio
                     </label>
-                    <input
-                      type="text"
-                      value="Team Manager"
-                      class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                    />
+                    <textarea
+                      v-model="profileForm.bio"
+                      rows="3"
+                      placeholder="Tell us about yourself"
+                      class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    ></textarea>
                   </div>
                 </div>
               </div>
@@ -236,8 +253,7 @@
                 Close
               </button>
               <button
-                @click="saveProfile"
-                type="button"
+                type="submit"
                 class="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
               >
                 Save Changes
@@ -251,14 +267,145 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Modal from './Modal.vue'
 
+// ========== USER DATA FROM LOCAL STORAGE ==========
+const getUserFromStorage = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  } catch (error) {
+    console.error('Error parsing user from localStorage:', error)
+    return null
+  }
+}
+
+const user = ref(getUserFromStorage())
+
+// Computed properties for display
+const userFirstName = computed(() => {
+  const fullName = user.value?.username
+  return fullName.split(' ')[0] || 'User'
+})
+
+const userLastName = computed(() => {
+  const fullName = user.value?.username
+  const parts = fullName.split(' ')
+  return parts.length > 1 ? parts.slice(1).join(' ') : ''
+})
+
+const userEmail = computed(() => {
+  return user.value?.email || 'No email'
+})
+
+const userPhone = computed(() => {
+  return user.value?.phone || null
+})
+
+const userBio = computed(() => {
+  return user.value?.bio || null
+})
+
+const userRole = computed(() => {
+  const roles = user.value?.roles
+  if (Array.isArray(roles) && roles.length > 0) {
+    return roles[0].charAt(0).toUpperCase() + roles[0].slice(1)
+  }
+  return null
+})
+
+// ========== PROFILE EDIT FORM ==========
 const isProfileInfoModal = ref(false)
 
-const saveProfile = () => {
-  // Implement save profile logic here
-  console.log('Profile saved')
-  isProfileInfoModal.value = false
+// Initialize form with user data
+const profileForm = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  bio: '',
+  facebook: '',
+  x: '',
+  linkedin: '',
+  instagram: ''
+})
+
+// Update form when user data changes or modal opens
+const updateFormFromUser = () => {
+  const fullName = user.value?.displayName || user.value?.name || ''
+  const nameParts = fullName.split(' ')
+  
+  profileForm.value = {
+    firstName: nameParts[0] || '',
+    lastName: nameParts.slice(1).join(' ') || '',
+    email: user.value?.email || '',
+    phone: user.value?.phone || '',
+    bio: user.value?.bio || '',
+    facebook: user.value?.social?.facebook || '',
+    x: user.value?.social?.x || '',
+    linkedin: user.value?.social?.linkedin || '',
+    instagram: user.value?.social?.instagram || ''
+  }
 }
+
+// Watch for modal open to populate form
+onMounted(() => {
+  updateFormFromUser()
+})
+
+// ========== SAVE PROFILE ==========
+const saveProfile = async () => {
+  try {
+    // In a real app, you would call your API here
+    // const token = JSON.parse(localStorage.getItem('token') || '{}')
+    // const response = await axios.put('/api/v1/users/profile', profileForm.value, {
+    //   headers: { Authorization: `Bearer ${token}` }
+    // })
+    
+    // For now, just update localStorage
+    const updatedUser = {
+      ...user.value,
+      displayName: `${profileForm.value.firstName} ${profileForm.value.lastName}`.trim(),
+      name: `${profileForm.value.firstName} ${profileForm.value.lastName}`.trim(),
+      email: profileForm.value.email,
+      phone: profileForm.value.phone,
+      bio: profileForm.value.bio,
+      social: {
+        facebook: profileForm.value.facebook,
+        x: profileForm.value.x,
+        linkedin: profileForm.value.linkedin,
+        instagram: profileForm.value.instagram
+      }
+    }
+    
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    user.value = updatedUser
+    
+    console.log('Profile saved:', profileForm.value)
+    isProfileInfoModal.value = false
+    
+    // Show success message (you can implement a toast notification)
+    alert('Profile updated successfully!')
+  } catch (error) {
+    console.error('Error saving profile:', error)
+    alert('Failed to save profile. Please try again.')
+  }
+}
+
+// Listen for storage changes from other tabs
+const handleStorageChange = () => {
+  user.value = getUserFromStorage()
+  updateFormFromUser()
+}
+
+// Set up event listeners
+onMounted(() => {
+  window.addEventListener('storage', handleStorageChange)
+})
+
+// Clean up event listeners
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
 </script>

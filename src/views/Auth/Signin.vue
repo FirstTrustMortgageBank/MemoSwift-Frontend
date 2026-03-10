@@ -5,30 +5,6 @@
         class="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900"
       >
         <div class="flex flex-col flex-1 w-full lg:w-1/2">
-          <div class="w-full max-w-md pt-10 mx-auto">
-            <router-link
-              to="/main-dashboard"
-              class="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-            >
-              <svg
-                class="stroke-current"
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-              >
-                <path
-                  d="M12.7083 5L7.5 10.2083L12.7083 15.4167"
-                  stroke=""
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              Back to dashboard
-            </router-link>
-          </div>
           <div class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
             <div>
               <div class="mb-5 sm:mb-8">
@@ -51,30 +27,54 @@
                 </p>
               </div>
               <div>
-                <div class="relative py-3 sm:py-5">
-                  <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-200 dark:border-gray-800"></div>
+                <!-- Error Alert -->
+                <div
+                  v-if="errorMessage"
+                  class="mb-4 p-3 rounded-lg bg-error-50 border border-error-200 text-error-600 dark:bg-error-500/10 dark:border-error-500/20 dark:text-error-400"
+                >
+                  <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-sm">{{ errorMessage }}</span>
                   </div>
                 </div>
+
+                <!-- Success Alert -->
+                <div
+                  v-if="successMessage"
+                  class="mb-4 p-3 rounded-lg bg-success-50 border border-success-200 text-success-600 dark:bg-success-500/10 dark:border-success-500/20 dark:text-success-400"
+                >
+                  <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span class="text-sm">{{ successMessage }}</span>
+                  </div>
+                </div>
+
                 <form @submit.prevent="handleSubmit">
                   <div class="space-y-5">
-                    <!-- Email -->
+                    <!-- Email/Username -->
                     <div>
                       <label
                         for="email"
                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
                       >
-                        Email<span class="text-error-500">*</span>
+                        Email or Username<span class="text-error-500">*</span>
                       </label>
                       <input
-                        v-model="email"
-                        type="email"
+                        v-model="username"
+                        type="text"
                         id="email"
                         name="email"
-                        placeholder="info@gmail.com"
+                        placeholder="Enter your email or username"
                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                        :disabled="isLoading"
+                        required
                       />
                     </div>
+
                     <!-- Password -->
                     <div>
                       <label
@@ -90,6 +90,8 @@
                           id="password"
                           placeholder="Enter your password"
                           class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                          :disabled="isLoading"
+                          required
                         />
                         <span
                           @click="togglePasswordVisibility"
@@ -130,13 +132,51 @@
                         </span>
                       </div>
                     </div>
-                    <!-- Button -->
+
+                    <!-- Remember Me & Forgot Password -->
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center">
+                        <input
+                          v-model="keepLoggedIn"
+                          id="remember"
+                          type="checkbox"
+                          class="w-4 h-4 text-brand-500 border-gray-300 rounded focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900"
+                        />
+                        <label for="remember" class="block ml-2 text-sm text-gray-700 dark:text-gray-400">
+                          Remember me
+                        </label>
+                      </div>
+                    </div>
+
+                    <!-- Submit Button -->
                     <div>
                       <button
                         type="submit"
-                        class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600"
+                        :disabled="isLoading"
+                        class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Sign In
+                        <svg
+                          v-if="isLoading"
+                          class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          ></circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        {{ isLoading ? 'Signing in...' : 'Sign In' }}
                       </button>
                     </div>
                   </div>
@@ -152,7 +192,7 @@
             <common-grid-shape />
             <div class="flex flex-col items-center max-w-xs">
               <router-link to="/" class="block mb-4">
-                <img width="{231}" height="{48}" src="/images/logo/logo.svg" alt="Logo" />
+                <img width="231" height="48" src="/images/logo/logo.svg" alt="Logo" />
               </router-link>
               <p class="text-center text-gray-400 dark:text-white/60">
                 Go Paperless with MemoSwift
@@ -167,23 +207,99 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
 import CommonGridShape from '@/components/common/CommonGridShape.vue'
 import FullScreenLayout from '@/components/layout/FullScreenLayout.vue'
-const email = ref('')
+
+const router = useRouter()
+
+// Form state
+const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const keepLoggedIn = ref(false)
+
+// UI state
+const isLoading = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
+
+// API configuration
+const API_URL = 'http://localhost:3000/api/v1' // Adjust this to your backend URL
 
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
 }
 
-const handleSubmit = () => {
-  // Handle form submission
-  console.log('Form submitted', {
-    email: email.value,
-    password: password.value,
-    keepLoggedIn: keepLoggedIn.value,
-  })
+const handleSubmit = async () => {
+  // Clear previous messages
+  errorMessage.value = ''
+  successMessage.value = ''
+  
+  // Validate inputs
+  if (!username.value || !password.value) {
+    errorMessage.value = 'Please enter both username/email and password'
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    // Call the login API
+    const response = await axios.post(`${API_URL}/auth/login`, {
+      username: username.value,
+      password: password.value
+    })
+
+    console.log('Login response:', response.data)
+
+    // Check if login was successful
+    if (response.data && response.data.data.access_token) {
+      // Store the token
+      const token = response.data.data.access_token
+      localStorage.setItem('token', JSON.stringify(token))
+      
+      // Store user info if available
+      if (response.data.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.data.user))
+        localStorage.setItem('id', JSON.stringify(response.data.data.user.id))
+      }
+
+      // Show success message
+      successMessage.value = 'Login successful! Redirecting...'
+
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        router.push('/main-dashboard')
+      }, 1500)
+    } else {
+      // Handle unexpected response format
+      errorMessage.value = 'Invalid response from server'
+    }
+  } catch (error: any) {
+    console.error('Login error:', error)
+    
+    // Handle different error scenarios
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      if (error.response.status === 401) {
+        errorMessage.value = error.response.data?.message || 'Invalid username or password'
+      } else if (error.response.status === 400) {
+        errorMessage.value = error.response.data?.message || 'Bad request. Please check your input.'
+      } else {
+        errorMessage.value = error.response.data?.message || `Server error: ${error.response.status}`
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      errorMessage.value = 'No response from server. Please check your network connection.'
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      errorMessage.value = error.message || 'An unexpected error occurred'
+    }
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
