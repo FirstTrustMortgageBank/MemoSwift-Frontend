@@ -15,7 +15,7 @@
       </svg>
       <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">Error Loading Memos</h3>
       <p class="mt-2 text-gray-500 dark:text-gray-400">{{ error }}</p>
-      <button @click="fetchMemos" class="px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
+      <button @click="fetchUserMemos" class="px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
         Try Again
       </button>
     </div>
@@ -25,9 +25,9 @@
       <!-- Header with actions -->
       <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Memos Dashboard</h1>
+          <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">My Memos</h1>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            View and manage your memos across all branches
+            Manage and track all your memos across branches
           </p>
         </div>
         
@@ -75,7 +75,7 @@
             <select v-model="filters.status" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
               <option value="">All Status</option>
               <option value="DRAFT">Draft</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="PENDING">Pending Approval</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
             </select>
@@ -114,7 +114,7 @@
       </ComponentCard>
 
       <!-- Search Bar -->
-      <div class="relative mb-6">
+      <div class="relative mb-4">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
@@ -127,296 +127,179 @@
         />
       </div>
 
-      <!-- Memos Waiting for Approval Section -->
-      <div class="mb-8">
+      <!-- Memo List Table Card -->
+      <ComponentCard title="My Memos">
+        <template #action>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Sort by:</span>
+            <select v-model="sortBy" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="title-asc">Title A-Z</option>
+              <option value="title-desc">Title Z-A</option>
+            </select>
+          </div>
+        </template>
+
+        <!-- Memo Count Summary -->
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Memos Waiting for My Approval</h2>
-          <span class="px-3 py-1 text-sm font-medium bg-warning-100 text-warning-700 rounded-full dark:bg-warning-500/20 dark:text-warning-400">
-            {{ pendingApprovals.length }} pending
-          </span>
-        </div>
-        
-        <ComponentCard title="Approval Queue">
-          <!-- Memo Count Summary -->
-          <div class="flex items-center justify-between mb-4">
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              Showing <span class="font-medium">{{ paginatedPendingApprovals.length }}</span> of <span class="font-medium">{{ pendingApprovals.length }}</span> memos
-            </p>
-            <button @click="fetchMemos" class="text-sm text-brand-500 hover:text-brand-600 flex items-center gap-1">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
-              Refresh
-            </button>
-          </div>
-
-          <!-- Approval Table -->
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Reference</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Title</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Author</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Branch</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Date</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="memo in paginatedPendingApprovals" :key="memo.id" class="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference }}</td>
-                  <td class="px-4 py-3">
-                    <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
-                      {{ memo.title }}
-                    </router-link>
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.authorName || memo.author }}</td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.branch }}</td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.createdAt) }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <button @click="viewMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="View">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                      </button>
-                      <button @click="router.push(`/memo/${memo.id}`)" class="p-1 text-success-500 hover:text-success-600" title="Approve">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                      </button>
-                      <button @click="router.push(`/memo/${memo.id}`)" class="p-1 text-error-500 hover:text-error-600" title="Reject">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                
-                <!-- Empty State -->
-                <tr v-if="pendingApprovals.length === 0">
-                  <td colspan="6" class="py-8 text-center">
-                    <svg class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p class="mt-2 text-gray-500 dark:text-gray-400">No memos waiting for your approval</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Approval Pagination -->
-          <div v-if="pendingApprovals.length > rowsPerPage" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
-              <select v-model="pendingRowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="15">15</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-600 dark:text-gray-400">
-                Page {{ pendingCurrentPage }} of {{ pendingTotalPages }}
-              </span>
-              <div class="flex items-center gap-2">
-                <button @click="pendingCurrentPage--" :disabled="pendingCurrentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                  </svg>
-                </button>
-                <button @click="pendingCurrentPage++" :disabled="pendingCurrentPage === pendingTotalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </ComponentCard>
-      </div>
-
-      <!-- My Memos Section -->
-      <div>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">My Memos</h2>
-          <span class="px-3 py-1 text-sm font-medium bg-gray-100 text-gray-700 rounded-full dark:bg-gray-800 dark:text-gray-400">
-            {{ myMemos.length }} total
-          </span>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            Showing <span class="font-medium">{{ paginatedMemos.length }}</span> of <span class="font-medium">{{ filteredMemos.length }}</span> memos
+          </p>
+          <button @click="fetchUserMemos" class="text-sm text-brand-500 hover:text-brand-600 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+          </button>
         </div>
 
-        <!-- Memo List Table Card -->
-        <ComponentCard title="My Memos">
-          <template #action>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 dark:text-gray-400">Sort by:</span>
-              <select v-model="sortBy" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-                <option value="date-desc">Newest First</option>
-                <option value="date-asc">Oldest First</option>
-                <option value="title-asc">Title A-Z</option>
-                <option value="title-desc">Title Z-A</option>
-              </select>
-            </div>
-          </template>
-
-          <!-- Memo Count Summary -->
-          <div class="flex items-center justify-between mb-4">
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              Showing <span class="font-medium">{{ paginatedMyMemos.length }}</span> of <span class="font-medium">{{ filteredMyMemos.length }}</span> memos
-            </p>
-          </div>
-
-          <!-- Memo List Table -->
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
-                  <th class="px-4 py-3 text-left">
-                    <div class="flex items-center gap-2">
-                      <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500">
-                    </div>
-                  </th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Reference</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Title</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Branch</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Date</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="memo in paginatedMyMemos" :key="memo.id" class="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
-                  <td class="px-4 py-3">
-                    <input type="checkbox" v-model="selectedMemos" :value="memo.id" class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500">
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference }}</td>
-                  <td class="px-4 py-3">
-                    <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
-                      {{ memo.title }}
-                    </router-link>
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.branch }}</span>
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.createdAt) }}</td>
-                  <td class="px-4 py-3">
-                    <span
-                      :class="{
-                        'px-2 py-1 text-xs font-medium rounded-full': true,
-                        'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500': memo.status === 'PENDING_APPROVAL',
-                        'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500': memo.status === 'APPROVED',
-                        'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400': memo.status === 'DRAFT',
-                        'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500': memo.status === 'REJECTED'
-                      }"
-                    >
-                      {{ formatStatus(memo.status) }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <button @click="viewMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="View">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                      </button>
-                      <button @click="editMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="Edit">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                      </button>
-                      <button v-if="memo.status === 'DRAFT'" @click="openDeleteModal(memo)" class="p-1 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400" title="Delete">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                
-                <!-- Empty State -->
-                <tr v-if="filteredMyMemos.length === 0">
-                  <td colspan="7" class="py-12 text-center">
-                    <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                    </svg>
-                    <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">No memos found</h3>
-                    <p class="mt-2 text-gray-500 dark:text-gray-400">{{ searchQuery || filters.status || filters.branch ? 'Try adjusting your filters' : 'You haven\'t created any memos yet' }}</p>
-                    <router-link to="/memo" class="inline-flex items-center gap-2 px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
+        <!-- Memo List Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+                <th class="px-4 py-3 text-left">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500">
+                  </div>
+                </th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Reference</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Title</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Branch</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Date</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="memo in paginatedMemos" :key="memo.id" class="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
+                <td class="px-4 py-3">
+                  <input type="checkbox" v-model="selectedMemos" :value="memo.id" class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500">
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference }}</td>
+                <td class="px-4 py-3">
+                  <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
+                    {{ memo.title }}
+                  </router-link>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.branch }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.createdAt) }}</td>
+                <td class="px-4 py-3">
+                  <span
+                    :class="{
+                      'px-2 py-1 text-xs font-medium rounded-full': true,
+                      'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500': memo.status === 'PENDING',
+                      'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500': memo.status === 'APPROVED',
+                      'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400': memo.status === 'DRAFT',
+                      'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500': memo.status === 'REJECTED'
+                    }"
+                  >
+                    {{ formatStatus(memo.status) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <button @click="viewMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="View">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                       </svg>
-                      Create Your First Memo
-                    </router-link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                    </button>
+                    <button @click="editMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="Edit">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                    </button>
+                    <button v-if="memo.status === 'DRAFT'" @click="openDeleteModal(memo)" class="p-1 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400" title="Delete">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              
+              <!-- Empty State -->
+              <tr v-if="filteredMemos.length === 0">
+                <td colspan="7" class="py-12 text-center">
+                  <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                  </svg>
+                  <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">No memos found</h3>
+                  <p class="mt-2 text-gray-500 dark:text-gray-400">{{ searchQuery || filters.status || filters.branch ? 'Try adjusting your filters' : 'You haven\'t created any memos yet' }}</p>
+                  <router-link to="/memo" class="inline-flex items-center gap-2 px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Create Your First Memo
+                  </router-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          <!-- Bulk Actions Bar - Only shows when selected memos are all drafts -->
-          <div v-if="selectedMemos.length > 0 && allSelectedAreDrafts" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
-            <span class="text-sm text-gray-600 dark:text-gray-400">
-              {{ selectedMemos.length }} draft memo(s) selected
-            </span>
-            <div class="flex items-center gap-2">
-              <button @click="openBulkDeleteModal" class="px-3 py-1.5 text-sm font-medium text-error-600 bg-error-50 rounded-lg hover:bg-error-100 dark:bg-error-500/15 dark:text-error-500 dark:hover:bg-error-500/25">
-                Delete Selected
-              </button>
-              <button @click="selectedMemos = []" class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
-                Cancel
-              </button>
-            </div>
-          </div>
-          
-          <!-- Warning message if selected memos include non-drafts -->
-          <div v-else-if="selectedMemos.length > 0 && !allSelectedAreDrafts" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 bg-warning-50 dark:bg-warning-500/10">
-            <span class="text-sm text-warning-600 dark:text-warning-500">
-              <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-              </svg>
-              Only draft memos can be deleted. Selected items include non-draft memos.
-            </span>
+        <!-- Bulk Actions Bar - Only shows when selected memos are all drafts -->
+        <div v-if="selectedMemos.length > 0 && allSelectedAreDrafts" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+          <span class="text-sm text-gray-600 dark:text-gray-400">
+            {{ selectedMemos.length }} draft memo(s) selected
+          </span>
+          <div class="flex items-center gap-2">
+            <button @click="openBulkDeleteModal" class="px-3 py-1.5 text-sm font-medium text-error-600 bg-error-50 rounded-lg hover:bg-error-100 dark:bg-error-500/15 dark:text-error-500 dark:hover:bg-error-500/25">
+              Delete Selected
+            </button>
             <button @click="selectedMemos = []" class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
               Cancel
             </button>
           </div>
+        </div>
+        
+        <!-- Warning message if selected memos include non-drafts -->
+        <div v-else-if="selectedMemos.length > 0 && !allSelectedAreDrafts" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 bg-warning-50 dark:bg-warning-500/10">
+          <span class="text-sm text-warning-600 dark:text-warning-500">
+            <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            Only draft memos can be deleted. Selected items include non-draft memos.
+          </span>
+          <button @click="selectedMemos = []" class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+            Cancel
+          </button>
+        </div>
 
-          <!-- Pagination -->
-          <div class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
+        <!-- Pagination -->
+        <div class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
+            <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-600 dark:text-gray-400">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
-              <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-600 dark:text-gray-400">
-                Page {{ myMemosCurrentPage }} of {{ myMemosTotalPages }}
-              </span>
-              <div class="flex items-center gap-2">
-                <button @click="myMemosCurrentPage--" :disabled="myMemosCurrentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                  </svg>
-                </button>
-                <button @click="myMemosCurrentPage++" :disabled="myMemosCurrentPage === myMemosTotalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </button>
-              </div>
+              <button @click="currentPage--" :disabled="currentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+              </button>
+              <button @click="currentPage++" :disabled="currentPage === totalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </button>
             </div>
           </div>
-        </ComponentCard>
-      </div>
+        </div>
+      </ComponentCard>
     </template>
 
     <!-- Delete Confirmation Modal -->
@@ -496,7 +379,7 @@ import ComponentCard from '@/components/common/ComponentCard.vue'
 import axios from 'axios'
 
 const router = useRouter()
-const currentPageTitle = ref('Memos Dashboard')
+const currentPageTitle = ref('My Memos')
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:3000/api/v1'
@@ -507,19 +390,6 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` }
 }
 
-// Get current user
-const getCurrentUser = () => {
-  try {
-    const userStr = localStorage.getItem('user')
-    return userStr ? JSON.parse(userStr) : null
-  } catch {
-    return null
-  }
-}
-
-const currentUser = getCurrentUser()
-const currentUserId = currentUser?.id
-
 // State
 const isLoading = ref(true)
 const error = ref(null)
@@ -528,15 +398,8 @@ const showFilters = ref(false)
 const searchQuery = ref('')
 const selectedMemos = ref([])
 const selectAll = ref(false)
-
-// Pagination for My Memos
-const myMemosCurrentPage = ref(1)
+const currentPage = ref(1)
 const rowsPerPage = ref(10)
-
-// Pagination for Pending Approvals
-const pendingCurrentPage = ref(1)
-const pendingRowsPerPage = ref(5)
-
 const sortBy = ref('date-desc')
 
 // Delete modal state
@@ -559,49 +422,21 @@ const filters = ref({
   endDate: ''
 })
 
-// Fetch all memos from API
-const fetchMemos = async () => {
+// Fetch user memos from API
+const fetchUserMemos = async () => {
   isLoading.value = true
   error.value = null
   
   try {
-    // Fetch memos created by the user
-    const myMemosResponse = await axios.get(`${API_BASE_URL}/memos/me`, {
+    const response = await axios.get(`${API_BASE_URL}/memos/me`, {
       headers: getAuthHeader()
     })
     
-    console.log('My memos response:', myMemosResponse.data)
+    console.log('Memos response:', response.data)
     
     // Handle the response structure
-    const myMemosData = myMemosResponse.data?.data[0] || myMemosResponse.data
-    const myMemosList = Array.isArray(myMemosData) ? myMemosData : (myMemosData?.data || [])
-    
-    // Fetch memos pending for current user's approval
-    const pendingResponse = await axios.get(`${API_BASE_URL}/memos/pending`, {
-      headers: getAuthHeader()
-    }).catch(err => {
-      console.log('Pending endpoint not available, using filter method')
-      return null
-    })
-    
-    let pendingList = []
-    if (pendingResponse?.data) {
-      const pendingData = pendingResponse.data?.data || pendingResponse.data
-      pendingList = Array.isArray(pendingData) ? pendingData : (pendingData?.data || [])
-    } else {
-      // Filter from all memos if endpoint not available
-      pendingList = myMemosList.filter(m => 
-        m.currentApproverId === currentUserId && 
-        m.status === 'PENDING_APPROVAL'
-      )
-    }
-    
-    // Store all memos with a flag for pending approvals
-    memos.value = myMemosList.map(memo => ({
-      ...memo,
-      isPendingForMe: pendingList.some(p => p.id === memo.id) || 
-                     (memo.currentApproverId === currentUserId && memo.status === 'PENDING_APPROVAL')
-    }))
+    const memosData = response.data?.data[0] || response.data
+    memos.value = Array.isArray(memosData) ? memosData : []
     
   } catch (err) {
     console.error('Error fetching memos:', err)
@@ -612,51 +447,7 @@ const fetchMemos = async () => {
   }
 }
 
-// Computed for Pending Approvals
-const pendingApprovals = computed(() => {
-  return memos.value.filter(memo => 
-    memo.isPendingForMe || 
-    (memo.currentApproverId === currentUserId && memo.status === 'PENDING_APPROVAL')
-  )
-})
-
-const filteredPendingApprovals = computed(() => {
-  let filtered = [...pendingApprovals.value]
-
-  // Apply search
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(memo => 
-      memo.title?.toLowerCase().includes(query) ||
-      memo.reference?.toLowerCase().includes(query)
-    )
-  }
-
-  // Apply branch filter
-  if (filters.value.branch) {
-    filtered = filtered.filter(memo => memo.branch === filters.value.branch)
-  }
-
-  return filtered
-})
-
-const pendingTotalPages = computed(() => 
-  Math.ceil(filteredPendingApprovals.value.length / pendingRowsPerPage.value)
-)
-
-const paginatedPendingApprovals = computed(() => {
-  const start = (pendingCurrentPage.value - 1) * pendingRowsPerPage.value
-  const end = start + pendingRowsPerPage.value
-  return filteredPendingApprovals.value.slice(start, end)
-})
-
-// Computed for My Memos
-const myMemos = computed(() => {
-  return memos.value.filter(memo => 
-    !(memo.isPendingForMe || (memo.currentApproverId === currentUserId && memo.status === 'PENDING_APPROVAL'))
-  )
-})
-
+// Computed
 const activeFilterCount = computed(() => {
   let count = 0
   if (filters.value.branch) count++
@@ -667,12 +458,12 @@ const activeFilterCount = computed(() => {
 
 const allSelectedAreDrafts = computed(() => {
   if (selectedMemos.value.length === 0) return false
-  const selectedMemosList = myMemos.value.filter(m => selectedMemos.value.includes(m.id))
+  const selectedMemosList = memos.value.filter(m => selectedMemos.value.includes(m.id))
   return selectedMemosList.every(m => m.status === 'DRAFT')
 })
 
-const filteredMyMemos = computed(() => {
-  let filtered = [...myMemos.value]
+const filteredMemos = computed(() => {
+  let filtered = [...memos.value]
 
   // Apply search
   if (searchQuery.value) {
@@ -747,20 +538,19 @@ const filteredMyMemos = computed(() => {
   return filtered
 })
 
-const myMemosTotalPages = computed(() => 
-  Math.ceil(filteredMyMemos.value.length / rowsPerPage.value)
+const totalPages = computed(() => 
+  Math.ceil(filteredMemos.value.length / rowsPerPage.value)
 )
 
-const paginatedMyMemos = computed(() => {
-  const start = (myMemosCurrentPage.value - 1) * rowsPerPage.value
+const paginatedMemos = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
   const end = start + rowsPerPage.value
-  return filteredMyMemos.value.slice(start, end)
+  return filteredMemos.value.slice(start, end)
 })
 
 // Watch for filter changes to reset pagination
 watch([filters, searchQuery, sortBy], () => {
-  myMemosCurrentPage.value = 1
-  pendingCurrentPage.value = 1
+  currentPage.value = 1
 })
 
 // Methods
@@ -781,7 +571,7 @@ const formatDate = (dateString) => {
 const formatStatus = (status) => {
   const statusMap = {
     'DRAFT': 'Draft',
-    'PENDING_APPROVAL': 'Pending Approval',
+    'PENDING': 'Pending Approval',
     'APPROVED': 'Approved',
     'REJECTED': 'Rejected'
   }
@@ -790,15 +580,15 @@ const formatStatus = (status) => {
 
 const toggleSelectAll = () => {
   if (selectAll.value) {
-    selectedMemos.value = paginatedMyMemos.value.map(m => m.id)
+    selectedMemos.value = paginatedMemos.value.map(m => m.id)
   } else {
     selectedMemos.value = []
   }
 }
 
 watch(selectedMemos, (newVal) => {
-  selectAll.value = paginatedMyMemos.value.length > 0 && 
-    paginatedMyMemos.value.every(m => newVal.includes(m.id))
+  selectAll.value = paginatedMemos.value.length > 0 && 
+    paginatedMemos.value.every(m => newVal.includes(m.id))
 })
 
 const resetFilters = () => {
@@ -839,7 +629,7 @@ const openBulkDeleteModal = () => {
   if (selectedMemos.value.length === 0) return
   
   // Check if all selected are drafts
-  const selectedMemosList = myMemos.value.filter(m => selectedMemos.value.includes(m.id))
+  const selectedMemosList = memos.value.filter(m => selectedMemos.value.includes(m.id))
   const nonDrafts = selectedMemosList.filter(m => m.status !== 'DRAFT')
   
   if (nonDrafts.length > 0) {
@@ -872,7 +662,7 @@ const confirmDelete = async () => {
       memos.value = memos.value.filter(m => !selectedMemos.value.includes(m.id))
       showToastMessage(`${selectedMemos.value.length} memos deleted successfully`, 'success')
       selectedMemos.value = []
-      await fetchMemos() // Refresh list after bulk delete
+      fetchUserMemos() // Refresh list after bulk delete
     } else {
       await axios.delete(`${API_BASE_URL}/memos/${memoToDelete.value.id}`, {
         headers: getAuthHeader()
@@ -882,7 +672,7 @@ const confirmDelete = async () => {
       memos.value = memos.value.filter(m => m.id !== memoToDelete.value.id)
       selectedMemos.value = selectedMemos.value.filter(id => id !== memoToDelete.value.id)
       showToastMessage('Memo deleted successfully', 'success')
-      await fetchMemos() // Refresh list after single delete
+      fetchUserMemos() // Refresh list after single delete
     }
     
     closeDeleteModal()
@@ -909,7 +699,7 @@ const showToastMessage = (message, type = 'success') => {
 
 // Load memos on mount
 onMounted(() => {
-  fetchMemos()
+  fetchUserMemos()
 })
 </script>
 

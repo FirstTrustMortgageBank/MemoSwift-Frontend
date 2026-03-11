@@ -259,7 +259,7 @@ const menuGroups = [
       },
       {
         icon: FolderIcon,
-        name: "Memo-List",
+        name: "My Memos",
         path: "/memo-list",
       },
       {
