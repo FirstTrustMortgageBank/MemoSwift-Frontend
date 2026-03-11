@@ -16,7 +16,7 @@
     <!-- Dropdown Start -->
     <div
       v-if="dropdownOpen"
-      class="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+      class="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
     >
       <div>
         <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
@@ -84,14 +84,17 @@ const getUserFromStorage = () => {
 // Reactive user data
 const user = ref(getUserFromStorage())
 
-// Computed properties for user display
+// Computed properties with safe fallbacks
 const userFullName = computed(() => {
-  return user.value?.username
+  return user.value?.username || 'User'
 })
 
 const userFirstName = computed(() => {
   const fullName = userFullName.value
-  return fullName.split(' ')[0] || 'User'
+  // Check if fullName exists before calling split
+  if (!fullName) return 'User'
+  const parts = fullName.split(' ')
+  return parts[0] || 'User'
 })
 
 const userEmail = computed(() => {
@@ -107,13 +110,17 @@ const userRole = computed(() => {
 })
 
 const userInitials = computed(() => {
-  const name = userFullName.value
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+  const fullName = userFullName.value
+  if (!fullName || fullName === 'User') return 'U'
+  
+  const nameParts = fullName.split(' ').filter(part => part.length > 0)
+  
+  if (nameParts.length === 0) return 'U'
+  if (nameParts.length === 1) {
+    return nameParts[0].charAt(0).toUpperCase()
+  }
+  
+  return (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
 })
 
 // ========== MENU ITEMS ==========
@@ -145,7 +152,7 @@ const signOut = () => {
   closeDropdown()
   
   // Redirect to login page
-  router.push('/login')
+  router.push('/')
   
   console.log('Signed out successfully')
 }
@@ -164,7 +171,7 @@ const handleStorageChange = () => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  window.addEventListener('storage', handleStorageChange) // Listen for storage changes from other tabs
+  window.addEventListener('storage', handleStorageChange)
 })
 
 onUnmounted(() => {

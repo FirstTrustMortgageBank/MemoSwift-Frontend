@@ -48,8 +48,9 @@
             {{ formatStatus(memo.status) }}
           </div>
           
+          <!-- Show Approve/Reject buttons only if user is the current approver -->
           <button 
-            v-if="memo.status === 'pending'"
+            v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
             @click="showApproveModal = true" 
             class="action-btn primary"
           >
@@ -61,7 +62,7 @@
           </button>
           
           <button 
-            v-if="memo.status === 'pending'"
+            v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
             @click="showRejectModal = true" 
             class="action-btn secondary"
           >
@@ -72,7 +73,7 @@
           </button>
           
           <button 
-            v-if="memo.status === 'draft'"
+            v-if="memo.status === 'DRAFT' && memo.authorId === currentUserId"
             @click="editMemo" 
             class="action-btn primary"
           >
@@ -120,7 +121,7 @@
           <div class="creator-meta">
             <span class="creator-role">{{ memo.creator?.role || 'Staff' }}</span>
             <span class="creator-department">{{ memo.creator?.department || memo.branch }}</span>
-            <span class="creator-date">Created {{ formatDate(memo.date) }}</span>
+            <span class="creator-date">Created {{ formatDate(memo.createdAt) }}</span>
           </div>
           <div v-if="memo.creator?.email" class="creator-contact">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -221,9 +222,9 @@
               <div class="comment-header">
                 <span class="comment-author">{{ comment.author }}</span>
                 <span class="comment-role">{{ comment.role }}</span>
-                <span class="comment-time">{{ formatTimeAgo(comment.date) }}</span>
+                <span class="comment-time">{{ formatTimeAgo(comment.createdAt) }}</span>
               </div>
-              <p class="comment-text">{{ comment.text }}</p>
+              <p class="comment-text">{{ comment.content }}</p>
               <div class="comment-footer">
                 <button @click="replyToComment(comment)" class="comment-action">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -231,7 +232,7 @@
                   </svg>
                   Reply
                 </button>
-                <button v-if="comment.author === currentUser" @click="deleteComment(comment.id)" class="comment-action delete">
+                <button v-if="comment.authorId === currentUserId" @click="deleteComment(comment.id)" class="comment-action delete">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                   </svg>
@@ -249,9 +250,9 @@
                     <div class="comment-header">
                       <span class="comment-author">{{ reply.author }}</span>
                       <span class="comment-role">{{ reply.role }}</span>
-                      <span class="comment-time">{{ formatTimeAgo(reply.date) }}</span>
+                      <span class="comment-time">{{ formatTimeAgo(reply.createdAt) }}</span>
                     </div>
-                    <p class="comment-text">{{ reply.text }}</p>
+                    <p class="comment-text">{{ reply.content }}</p>
                   </div>
                 </div>
               </div>
@@ -369,6 +370,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import * as mammoth from 'mammoth'
+import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
@@ -391,9 +393,41 @@ const charCount = ref(0)
 const showCommentInput = ref(false)
 const newComment = ref('')
 
-// Current user (in real app, this would come from auth)
-const currentUser = 'John Doe'
-const currentUserInitials = 'JD'
+// API Configuration
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+
+// Auth token helper
+const getAuthHeader = () => {
+  const token = JSON.parse(localStorage.getItem('token') || '{}')
+  return { Authorization: `Bearer ${token}` }
+}
+
+// Get current user from localStorage
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  } catch {
+    return null
+  }
+}
+
+// Define getInitials FIRST before it's used
+const getInitials = (name) => {
+  if (!name) return 'U'
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+const currentUser = getCurrentUser()
+const currentUserId = currentUser?.id
+const currentUserInitials = currentUser?.displayName 
+  ? getInitials(currentUser.displayName) 
+  : (currentUser?.username ? getInitials(currentUser.username) : 'U')
 
 // Memo data
 const memo = ref({
@@ -402,40 +436,44 @@ const memo = ref({
   title: '',
   branch: '',
   author: '',
-  date: '',
-  status: 'draft',
+  authorId: '',
+  currentApproverId: '',
+  createdAt: '',
+  status: 'DRAFT',
   content: '',
-  documentUrl: null,
   creator: {
     name: '',
     role: '',
     department: '',
     email: '',
-    status: 'active',
-    avatar: null
+    status: 'active'
   },
   attachments: [],
   comments: []
 })
 
 // Computed
+const isCurrentApprover = computed(() => {
+  return memo.value.currentApproverId === currentUserId && memo.value.status === 'PENDING_APPROVAL'
+})
+
 const approvalStatusClass = computed(() => {
   return {
-    'status-draft': memo.value.status === 'draft',
-    'status-pending': memo.value.status === 'pending',
-    'status-approved': memo.value.status === 'approved',
-    'status-rejected': memo.value.status === 'rejected',
+    'status-draft': memo.value.status === 'DRAFT',
+    'status-pending': memo.value.status === 'PENDING_APPROVAL',
+    'status-approved': memo.value.status === 'APPROVED',
+    'status-rejected': memo.value.status === 'REJECTED',
   }
 })
 
 const sortedComments = computed(() => {
   if (!memo.value.comments) return []
   return [...memo.value.comments].sort((a, b) => 
-    new Date(b.date) - new Date(a.date)
+    new Date(b.createdAt) - new Date(a.createdAt)
   )
 })
 
-// Methods
+// Methods (defined after getInitials)
 const goToDashboard = () => {
   router.push('/main-dashboard')
 }
@@ -450,25 +488,33 @@ const editMemo = () => {
 
 const formatStatus = (status) => {
   const statusMap = {
-    draft: 'Draft',
-    pending: 'Pending Approval',
-    approved: 'Approved',
-    rejected: 'Rejected'
+    'DRAFT': 'Draft',
+    'PENDING_APPROVAL': 'Pending Approval',
+    'APPROVED': 'Approved',
+    'REJECTED': 'Rejected'
   }
   return statusMap[status] || status
 }
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  } catch {
+    return 'Invalid date'
+  }
 }
 
-const formatTimeAgo = (date) => {
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'N/A'
+  
   const now = new Date()
-  const past = new Date(date)
+  const past = new Date(dateString)
   const diffMs = now - past
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
@@ -478,41 +524,86 @@ const formatTimeAgo = (date) => {
   if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
-  return formatDate(date)
+  return formatDate(dateString)
 }
 
-const getInitials = (name) => {
-  if (!name) return 'U'
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+// API Methods
+const fetchMemo = async (id) => {
+  try {
+    isLoading.value = true
+    loadingMessage.value = 'Loading memo...'
+    error.value = null
+    
+    const response = await axios.get(`${API_BASE_URL}/memos/${id}`, {
+      headers: getAuthHeader()
+    })
+    
+    console.log('Memo response:', response.data)
+    
+    const memoData = response.data?.data || response.data
+    
+    memo.value = {
+      ...memoData,
+      status: memoData.status || 'DRAFT',
+      content: memoData.content || '',
+      attachments: memoData.attachments || [],
+      comments: memoData.comments || [],
+      creator: {
+        name: memoData.authorName || memoData.author || 'Unknown',
+        role: memoData.authorRole || 'Staff',
+        department: memoData.branch || 'Unknown',
+        email: memoData.authorEmail || '',
+        status: 'active'
+      }
+    }
+    calculateWordCount()
+    
+  } catch (err) {
+    console.error('Error fetching memo:', err)
+    error.value = err.response?.data?.message || 'Failed to load memo. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
-const approveMemo = () => {
-  console.log('Approving memo:', memoId, 'Comment:', approvalComment.value)
-  memo.value.status = 'approved'
-  memo.value.approvedDate = new Date().toISOString()
-  memo.value.approver = currentUser
-  memo.value.approvalComment = approvalComment.value
-  showApproveModal.value = false
-  showToastMessage('Memo approved successfully', 'success')
-  approvalComment.value = ''
+const approveMemo = async () => {
+  try {
+    await axios.post(
+      `${API_BASE_URL}/memos/${memoId}/approve`,
+      { comment: approvalComment.value },
+      { headers: getAuthHeader() }
+    )
+    
+    memo.value.status = 'APPROVED'
+    showApproveModal.value = false
+    showToastMessage('Memo approved successfully', 'success')
+    approvalComment.value = ''
+    
+  } catch (err) {
+    console.error('Error approving memo:', err)
+    showToastMessage('Failed to approve memo', 'error')
+  }
 }
 
-const rejectMemo = () => {
+const rejectMemo = async () => {
   if (!rejectionReason.value.trim()) return
   
-  console.log('Rejecting memo:', memoId, 'Reason:', rejectionReason.value)
-  memo.value.status = 'rejected'
-  memo.value.rejectedDate = new Date().toISOString()
-  memo.value.approver = currentUser
-  memo.value.approvalComment = rejectionReason.value
-  showRejectModal.value = false
-  showToastMessage('Memo rejected', 'error')
-  rejectionReason.value = ''
+  try {
+    await axios.post(
+      `${API_BASE_URL}/memos/${memoId}/reject`,
+      { reason: rejectionReason.value },
+      { headers: getAuthHeader() }
+    )
+    
+    memo.value.status = 'REJECTED'
+    showRejectModal.value = false
+    showToastMessage('Memo rejected', 'error')
+    rejectionReason.value = ''
+    
+  } catch (err) {
+    console.error('Error rejecting memo:', err)
+    showToastMessage('Failed to reject memo', 'error')
+  }
 }
 
 const handlePrint = () => {
@@ -539,53 +630,77 @@ const showToastMessage = (message, type = 'success') => {
 }
 
 // Comment methods
-const addComment = () => {
+const addComment = async () => {
   if (!newComment.value.trim()) return
   
-  const comment = {
-    id: Date.now(),
-    author: currentUser,
-    role: 'Staff',
-    text: newComment.value,
-    date: new Date().toISOString(),
-    replies: []
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/memos/${memoId}/comments`,
+      { content: newComment.value },
+      { headers: getAuthHeader() }
+    )
+    
+    const newCommentData = response.data?.data || response.data
+    
+    if (!memo.value.comments) {
+      memo.value.comments = []
+    }
+    
+    memo.value.comments.push(newCommentData)
+    newComment.value = ''
+    showCommentInput.value = false
+    showToastMessage('Comment added', 'success')
+    
+  } catch (err) {
+    console.error('Error adding comment:', err)
+    showToastMessage('Failed to add comment', 'error')
   }
-  
-  if (!memo.value.comments) {
-    memo.value.comments = []
-  }
-  
-  memo.value.comments.push(comment)
-  newComment.value = ''
-  showCommentInput.value = false
-  showToastMessage('Comment added', 'success')
 }
 
-const replyToComment = (comment) => {
+const replyToComment = async (comment) => {
   const replyText = window.prompt('Enter your reply:')
   if (!replyText) return
   
-  const reply = {
-    id: Date.now(),
-    author: currentUser,
-    role: 'Staff',
-    text: replyText,
-    date: new Date().toISOString()
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/memos/${memoId}/comments`,
+      { 
+        content: replyText,
+        parentId: comment.id 
+      },
+      { headers: getAuthHeader() }
+    )
+    
+    const newReply = response.data?.data || response.data
+    
+    if (!comment.replies) {
+      comment.replies = []
+    }
+    
+    comment.replies.push(newReply)
+    showToastMessage('Reply added', 'success')
+    
+  } catch (err) {
+    console.error('Error adding reply:', err)
+    showToastMessage('Failed to add reply', 'error')
   }
-  
-  if (!comment.replies) {
-    comment.replies = []
-  }
-  
-  comment.replies.push(reply)
-  showToastMessage('Reply added', 'success')
 }
 
-const deleteComment = (commentId) => {
+const deleteComment = async (commentId) => {
   if (!confirm('Delete this comment?')) return
   
-  memo.value.comments = memo.value.comments.filter(c => c.id !== commentId)
-  showToastMessage('Comment deleted', 'success')
+  try {
+    await axios.delete(`${API_BASE_URL}/comments/${commentId}`, {
+      headers: getAuthHeader()
+    })
+    
+    memo.value.comments = memo.value.comments.filter(c => c.id !== commentId)
+    showToastMessage('Comment deleted', 'success')
+    
+  } catch (err) {
+    console.error('Error deleting comment:', err)
+    showToastMessage('Failed to delete comment', 'error')
+  }
 }
 
 // Calculate word count from content
@@ -597,7 +712,7 @@ const calculateWordCount = () => {
   charCount.value = text.length
 }
 
-// Load DOCX file and convert to HTML
+// Load DOCX file and convert to HTML (if needed)
 const loadDocxFile = async (fileUrl) => {
   try {
     loadingMessage.value = 'Converting document...'
@@ -625,10 +740,8 @@ const loadDocxFile = async (fileUrl) => {
       })
     })
     
-    // Get the HTML content
     let html = result.value
     
-    // Wrap in document container
     html = `
       <div style="font-family: 'Century Gothic', sans-serif; max-width: 8.5in; margin: 0 auto;">
         ${html}
@@ -637,7 +750,6 @@ const loadDocxFile = async (fileUrl) => {
     
     memo.value.content = html
     
-    // Log any warnings from conversion
     if (result.messages.length > 0) {
       console.log('Conversion messages:', result.messages)
     }
@@ -648,82 +760,14 @@ const loadDocxFile = async (fileUrl) => {
   }
 }
 
-// Load memo data
-const loadMemoData = async () => {
-  try {
-    isLoading.value = true
-    error.value = null
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Mock memo data with creator info and comments
-    memo.value = {
-      id: memoId,
-      reference: 'MEM-2024-001',
-      title: 'Q4 Budget Approval',
-      branch: 'Head Office',
-      author: 'John Smith',
-      date: '2024-03-15T10:30:00',
-      status: 'pending',
-      documentUrl: '/src/assets/templates/memo-template.docx',
-      creator: {
-        name: 'John Smith',
-        role: 'Senior IT Manager',
-        department: 'Information Technology',
-        email: 'john.smith@firsttrust.com',
-        status: 'active'
-      },
-      attachments: [
-        { name: 'Q4_Budget_Details.xlsx', size: '245 KB' },
-        { name: 'Vendor_Quotes.pdf', size: '1.2 MB' }
-      ],
-      comments: [
-        {
-          id: 1,
-          author: 'Sarah Johnson',
-          role: 'Finance Director',
-          text: 'Please provide more details on the software licensing costs.',
-          date: '2024-03-15T11:45:00',
-          replies: [
-            {
-              id: 101,
-              author: 'John Smith',
-              role: 'Senior IT Manager',
-              text: 'I\'ve attached the detailed breakdown in the Q4_Budget_Details file.',
-              date: '2024-03-15T14:20:00'
-            }
-          ]
-        },
-        {
-          id: 2,
-          author: 'Michael Chen',
-          role: 'Risk Manager',
-          text: 'Has this been reviewed by the compliance team?',
-          date: '2024-03-15T13:15:00',
-          replies: []
-        }
-      ]
-    }
-    
-    // Load the actual document
-    if (memo.value.documentUrl) {
-      await loadDocxFile(memo.value.documentUrl)
-    }
-    
-    calculateWordCount()
-    
-  } catch (err) {
-    console.error('Error loading memo:', err)
-    error.value = 'Failed to load memo. Please try again.'
-  } finally {
-    isLoading.value = false
-  }
-}
-
 // Load memo data on mount
 onMounted(() => {
-  loadMemoData()
+  if (memoId) {
+    fetchMemo(memoId)
+  } else {
+    error.value = 'No memo ID provided'
+    isLoading.value = false
+  }
 })
 </script>
 

@@ -261,9 +261,9 @@ const handleSubmit = async () => {
       localStorage.setItem('token', JSON.stringify(token))
       
       // Store user info if available
-      if (response.data.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.data.user))
-        localStorage.setItem('id', JSON.stringify(response.data.data.user.id))
+      if (response.data.data.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.data.data.user))
+        localStorage.setItem('id', JSON.stringify(response.data.data.data.user.id))
       }
 
       // Show success message
