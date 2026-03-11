@@ -255,9 +255,9 @@ const handleSubmit = async () => {
     console.log('Login response:', response.data)
 
     // Check if login was successful
-    if (response.data && response.data.data.access_token) {
+    if (response.data && response.data.data.data.access_token) {
       // Store the token
-      const token = response.data.data.access_token
+      const token = response.data.data.data.access_token
       localStorage.setItem('token', JSON.stringify(token))
       
       // Store user info if available

@@ -1,9 +1,9 @@
 <template>
   <div class="memo-editor-container">
-    <!-- Loading overlay while loading DOCX -->
+    <!-- Loading overlay while loading -->
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <p>Loading memo template...</p>
+      <p>{{ loadingMessage }}</p>
     </div>
 
     <!-- Header with Dashboard Button and Memo Actions -->
@@ -16,23 +16,40 @@
           </svg>
           Dashboard
         </button>
-        <span class="memo-title-indicator" v-if="documentInfo">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-          {{ documentInfo }}
-        </span>
+        
+        <!-- Document Title Input -->
+        <div class="title-input-container">
+          <input
+            v-model="memoTitle"
+            type="text"
+            placeholder="Enter document title..."
+            class="title-input"
+            :disabled="isLoading"
+            @input="scheduleAutoSave"
+          />
+          <span v-if="memoReference" class="reference-badge">
+            {{ memoReference }}
+          </span>
+          <span v-if="autoSaveStatus" class="auto-save-status" :class="autoSaveStatus.type">
+            {{ autoSaveStatus.message }}
+          </span>
+        </div>
       </div>
       
       <div class="header-actions">
-        <!-- Approval Workflow Buttons -->
+        <!-- Status Badge (only shows status) -->
         <div class="approval-badge" :class="approvalStatusClass">
           <span class="status-dot"></span>
           {{ currentApprovalStatus }}
         </div>
         
-        <button @click="showApproverModal = true" class="action-btn primary">
+        <!-- Only show Send to Approver button when memo exists and is in Draft -->
+        <button 
+          v-if="memoId && currentApprovalStatus === 'Draft'"
+          @click="openApproverModal" 
+          class="action-btn primary"
+          :disabled="isSaving"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
@@ -40,53 +57,61 @@
           Send to Approver
         </button>
         
-        <button @click="handleSave" class="action-btn secondary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-            <polyline points="17 21 17 13 7 13 7 21"/>
-            <polyline points="7 3 7 8 15 8"/>
+        <!-- Save Draft button (always visible) -->
+        <button 
+          @click="handleSave" 
+          class="action-btn secondary"
+          :disabled="isSaving"
+        >
+          <svg v-if="isSaving" class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
           </svg>
-          Save Draft
+          {{ isSaving ? 'Saving...' : 'Save Draft' }}
         </button>
       </div>
     </div>
 
-    <!-- Approver Selection Modal -->
-    <div v-if="showApproverModal" class="modal-overlay" @click.self="showApproverModal = false">
+    <!-- Approver Selection Modal - Only shown when sending for approval -->
+    <div v-if="showApproverModal" class="modal-overlay" @click.self="closeApproverModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>Send for Approval</h3>
-          <button @click="showApproverModal = false" class="close-btn">✕</button>
+          <button @click="closeApproverModal" class="close-btn">✕</button>
         </div>
         
         <div class="modal-body">
           <div class="form-group">
             <label>Select Approver</label>
-            <select v-model="selectedApprover" class="approver-select">
+            <select v-model="selectedApprover" class="approver-select" :disabled="isLoadingApprovers">
               <option value="" disabled>Choose next approver...</option>
               <option v-for="approver in approversList" :key="approver.id" :value="approver.id">
                 {{ approver.name }} - {{ approver.role }} ({{ approver.department }})
               </option>
             </select>
+            <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
+            <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">
+              No approvers available
+            </div>
           </div>
           
           <div class="form-group">
             <label>Priority Level</label>
             <div class="priority-options">
               <label class="priority-option">
-                <input type="radio" v-model="priority" value="low">
+                <input type="radio" v-model="priority" value="LOW">
                 <span class="priority-badge low">Low</span>
               </label>
               <label class="priority-option">
-                <input type="radio" v-model="priority" value="medium">
+                <input type="radio" v-model="priority" value="MEDIUM">
                 <span class="priority-badge medium">Medium</span>
               </label>
               <label class="priority-option">
-                <input type="radio" v-model="priority" value="high">
+                <input type="radio" v-model="priority" value="HIGH">
                 <span class="priority-badge high">High</span>
               </label>
               <label class="priority-option">
-                <input type="radio" v-model="priority" value="urgent">
+                <input type="radio" v-model="priority" value="URGENT">
                 <span class="priority-badge urgent">Urgent</span>
               </label>
             </div>
@@ -116,19 +141,19 @@
         </div>
         
         <div class="modal-footer">
-          <button @click="showApproverModal = false" class="cancel-btn">Cancel</button>
+          <button @click="closeApproverModal" class="cancel-btn">Cancel</button>
           <button 
             @click="sendToApprover" 
             class="send-btn"
-            :disabled="!selectedApprover"
+            :disabled="!selectedApprover || isSending || approversList.length === 0"
           >
-            Send for Approval
+            {{ isSending ? 'Sending...' : 'Send for Approval' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Success Toast -->
+    <!-- Success/Error Toast -->
     <div v-if="showToast" class="toast-notification" :class="toastType">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path v-if="toastType === 'success'" d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -189,48 +214,6 @@
           </button>
           <button @click="toggleRuler" class="menu-item">
             {{ showRuler ? 'Hide Ruler' : 'Show Ruler' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Approval Menu (New) -->
-      <div class="relative" @click.stop>
-        <button @click="toggleMenu('approval')" class="menubar-btn approval-menu-btn">
-          Approval
-          <span v-if="approvalHistory.length > 0" class="menu-badge">{{ approvalHistory.length }}</span>
-        </button>
-        <div v-if="activeMenu === 'approval'" class="menu-dropdown approval-dropdown">
-          <div class="dropdown-header">
-            <strong>Approval History</strong>
-          </div>
-          <div v-if="approvalHistory.length === 0" class="empty-history">
-            No approval history yet
-          </div>
-          <div v-for="(item, index) in approvalHistory" :key="index" class="history-item">
-            <div class="history-header">
-              <span class="history-action" :class="item.action.toLowerCase()">{{ item.action }}</span>
-              <span class="history-date">{{ formatDate(item.date) }}</span>
-            </div>
-            <div class="history-details">
-              <span class="history-approver">{{ item.approver }}</span>
-              <span class="history-role">{{ item.role }}</span>
-            </div>
-            <div v-if="item.comment" class="history-comment">"{{ item.comment }}"</div>
-          </div>
-          <div class="menu-divider"></div>
-          <button @click="showApproverModal = true" class="menu-item approval-action">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            Send to Next Approver
-          </button>
-          <button @click="viewApprovalFlow" class="menu-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M2 3h6a4 4 0 0 1 4 4v14"/>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14"/>
-            </svg>
-            View Approval Flow
           </button>
         </div>
       </div>
@@ -464,6 +447,7 @@
     <div class="status-bar">
       <div>Words: {{ wordCount }} | Characters: {{ charCount }}</div>
       <div class="status-right">
+        <!-- Only show approver indicator if there is one -->
         <span v-if="currentApprover" class="approver-indicator">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -471,8 +455,8 @@
           </svg>
           Next: {{ currentApprover }}
         </span>
-        <span class="document-indicator" v-if="documentInfo">
-          📄 {{ documentInfo }}
+        <span class="document-indicator" v-if="memoReference">
+          📄 {{ memoReference }}
         </span>
         <span>{{ editor?.isEditable ? 'Editing' : 'Read Only' }} | Page 1 of {{ pageCount }}</span>
       </div>
@@ -481,8 +465,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -497,9 +481,14 @@ import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
 import { Extension } from '@tiptap/core'
 import * as mammoth from 'mammoth'
+import axios from 'axios'
+import { debounce } from 'lodash-es'
 
-// Import the DOCX file (adjust the path to your actual file)
+// Import the DOCX template
 import defaultTemplate from '@/assets/templates/memo-template.docx?url'
+
+// API Configuration
+const API_BASE_URL = 'http://localhost:3000/api/v1'
 
 // Custom extension for line height
 const LineHeight = Extension.create({
@@ -534,8 +523,24 @@ const LineHeight = Extension.create({
 
 // Router
 const router = useRouter()
+const route = useRoute()
 
-// State
+// Auth token helper
+const getAuthHeader = () => {
+  const token = JSON.parse(localStorage.getItem('token') || '{}')
+  return { Authorization: `Bearer ${token}` }
+}
+
+// Get current user
+const getCurrentUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}')
+  } catch {
+    return {}
+  }
+}
+
+// ============ STATE ============
 const activeMenu = ref(null)
 const isFullscreen = ref(false)
 const showRuler = ref(true)
@@ -545,35 +550,47 @@ const fontFamily = ref('Century Gothic')
 const fontSize = ref(12)
 const headingLevel = ref('0')
 const lineHeight = ref('1.5')
-const isLoading = ref(true)
-const documentInfo = ref('Loading template...')
+const isLoading = ref(false)
+const loadingMessage = ref('Loading...')
 const showApproverModal = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
+const isSaving = ref(false)
+const isSending = ref(false)
+const isLoadingApprovers = ref(false)
+const autoSaveStatus = ref(null)
 
-// Approval workflow state
-const selectedApprover = ref('')
-const priority = ref('medium')
-const dueDate = ref('')
-const approverMessage = ref('')
-const notifyByEmail = ref(true)
-const approvalHistory = ref([])
+// Memo data
+const memoId = ref(route.params.id || null)
+const memoTitle = ref('')
+const memoReference = ref('')
 const currentApprovalStatus = ref('Draft')
 const currentApprover = ref('')
 
-// Mock data - replace with actual API calls
-const approversList = ref([
-  { id: 1, name: 'Sarah Johnson', role: 'Compliance Officer', department: 'Compliance' },
-  { id: 2, name: 'Michael Chen', role: 'Risk Manager', department: 'Risk Management' },
-  { id: 3, name: 'David Okonkwo', role: 'Branch Operations Head', department: 'Operations' },
-  { id: 4, name: 'Amara Okafor', role: 'Legal Counsel', department: 'Legal' },
-  { id: 5, name: 'James Wilson', role: 'Finance Director', department: 'Finance' },
-  { id: 6, name: 'Patricia Eze', role: 'CEO', department: 'Executive' },
-])
+// Track unsaved changes
+const hasUnsavedChanges = ref(false)
+const lastSavedContent = ref('')
+const lastSavedTitle = ref('')
 
+// Auto-save debouncer
+const autoSaveDebounced = debounce(() => {
+  if (hasUnsavedChanges.value) {
+    handleAutoSave()
+  }
+}, 2000)
+
+// Approval workflow (only used when sending for approval)
+const selectedApprover = ref('')
+const priority = ref('MEDIUM')
+const dueDate = ref('')
+const approverMessage = ref('')
+const notifyByEmail = ref(true)
+const approversList = ref([])
+
+// ============ EDITOR ============
 const editor = useEditor({
-  content: '<p>Loading memo template...</p>',
+  content: '<p>Start typing your memo...</p>',
   extensions: [
     StarterKit,
     Underline,
@@ -605,9 +622,13 @@ const editor = useEditor({
     },
   },
   immediatelyRender: false,
+  onUpdate: () => {
+    checkForUnsavedChanges()
+    scheduleAutoSave()
+  },
 })
 
-// Computed
+// ============ COMPUTED ============
 const wordCount = computed(() => {
   if (!editor.value) return 0
   const text = editor.value.getText()
@@ -632,168 +653,394 @@ const approvalStatusClass = computed(() => {
   }
 })
 
-// Methods
-const goToDashboard = () => {
-  router.push('/main-dashboard') // Adjust path as needed
+// ============ AUTO-SAVE METHODS ============
+const checkForUnsavedChanges = () => {
+  const currentContent = editor.value?.getHTML() || ''
+  hasUnsavedChanges.value = 
+    currentContent !== lastSavedContent.value || 
+    memoTitle.value !== lastSavedTitle.value
 }
 
-const toggleMenu = (menu) => {
-  activeMenu.value = activeMenu.value === menu ? null : menu
-}
-
-const handleNew = () => {
-  if (confirm('Clear current memo and start a new one?')) {
-    editor.value?.commands.clearContent()
-    editor.value?.commands.setContent('<p>Start typing your memo here...</p>')
-    documentInfo.value = 'New document'
-    approvalHistory.value = []
-    currentApprovalStatus.value = 'Draft'
-    currentApprover.value = ''
-    activeMenu.value = null
+const scheduleAutoSave = () => {
+  if (memoId.value) {
+    autoSaveDebounced()
   }
 }
 
-const handleOpen = () => {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.docx,.doc'
-  input.onchange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      loadDocxFromFile(file)
+const updateAutoSaveStatus = (message, type = 'success') => {
+  autoSaveStatus.value = { message, type }
+  setTimeout(() => {
+    autoSaveStatus.value = null
+  }, 3000)
+}
+
+const handleAutoSave = async () => {
+  if (!memoId.value || !hasUnsavedChanges.value) return
+  
+  try {
+    await updateMemo(true) // silent update
+    updateAutoSaveStatus('Auto-saved')
+  } catch (error) {
+    console.error('Auto-save failed:', error)
+    updateAutoSaveStatus('Auto-save failed', 'error')
+  }
+}
+
+// ============ API METHODS ============
+
+// Check for unsaved draft in localStorage
+const checkForDraft = () => {
+  const draftId = localStorage.getItem('memo_draft_id')
+  const draftData = localStorage.getItem('memo_draft_data')
+  
+  if (draftId && draftData && !memoId.value) {
+    try {
+      const draft = JSON.parse(draftData)
+      const shouldRestore = confirm('You have an unsaved draft. Would you like to restore it?')
+      
+      if (shouldRestore) {
+        memoId.value = draftId
+        memoTitle.value = draft.title
+        memoReference.value = draft.reference
+        if (editor.value && draft.content) {
+          editor.value.commands.setContent(draft.content)
+        }
+        if (draft.metadata) {
+          fontFamily.value = draft.metadata.fontFamily || 'Century Gothic'
+          fontSize.value = draft.metadata.fontSize || 12
+          lineHeight.value = draft.metadata.lineHeight || '1.5'
+        }
+        lastSavedContent.value = draft.content
+        lastSavedTitle.value = draft.title
+        hasUnsavedChanges.value = false
+      } else {
+        localStorage.removeItem('memo_draft_id')
+        localStorage.removeItem('memo_draft_data')
+      }
+    } catch (error) {
+      console.error('Error parsing draft:', error)
     }
   }
-  input.click()
-  activeMenu.value = null
 }
 
-const handleSave = () => {
-  const content = editor.value?.getHTML()
-  console.log('Saving:', content)
-  showToastMessage('Draft saved successfully', 'success')
-  activeMenu.value = null
-}
-
-const handleSaveAs = () => {
-  const content = editor.value?.getHTML()
-  const filename = documentInfo.value?.replace('.docx', '') || 'memo'
-  const fullFilename = `${filename}-${new Date().toISOString().slice(0, 10)}.html`
+// Save draft to localStorage
+const saveDraftToLocal = () => {
+  if (!memoId.value) return
   
-  const blob = new Blob([content], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fullFilename
-  a.click()
-  showToastMessage('File saved successfully', 'success')
-  activeMenu.value = null
-}
-
-const handleExportPDF = async () => {
-  showToastMessage('PDF export coming soon', 'info')
-  activeMenu.value = null
-}
-
-const handleExportDOCX = async () => {
-  showToastMessage('DOCX export coming soon', 'info')
-  activeMenu.value = null
-}
-
-const handlePrint = () => {
-  window.print()
-  activeMenu.value = null
-}
-
-const handleCut = () => {
-  document.execCommand('cut')
-  activeMenu.value = null
-}
-
-const handleCopy = () => {
-  document.execCommand('copy')
-  activeMenu.value = null
-}
-
-const handlePaste = () => {
-  navigator.clipboard.readText().then(text => {
-    editor.value?.commands.insertContent(text)
-  })
-  activeMenu.value = null
-}
-
-const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen()
-    isFullscreen.value = true
-  } else {
-    document.exitFullscreen()
-    isFullscreen.value = false
+  const draftData = {
+    id: memoId.value,
+    title: memoTitle.value,
+    reference: memoReference.value,
+    content: editor.value?.getHTML() || '',
+    metadata: {
+      fontFamily: fontFamily.value,
+      fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+    },
+    lastModified: new Date().toISOString()
   }
-  activeMenu.value = null
+  
+  localStorage.setItem('memo_draft_id', memoId.value)
+  localStorage.setItem('memo_draft_data', JSON.stringify(draftData))
 }
 
-const toggleDarkMode = () => {
-  document.documentElement.classList.toggle('dark')
-  activeMenu.value = null
+// Clear draft from localStorage
+const clearDraft = () => {
+  localStorage.removeItem('memo_draft_id')
+  localStorage.removeItem('memo_draft_data')
 }
 
-const toggleRuler = () => {
-  showRuler.value = !showRuler.value
-  activeMenu.value = null
-}
-
-const setHeading = () => {
-  if (headingLevel.value === '0') {
-    editor.value?.chain().focus().setParagraph().run()
-  } else {
-    editor.value?.chain().focus().setHeading({ level: parseInt(headingLevel.value) }).run()
-  }
-}
-
-const setFontFamily = () => {
-  editor.value?.chain().focus().setFontFamily(fontFamily.value).run()
-}
-
-const setFontSize = () => {
-  editor.value?.chain().focus().setMark('textStyle', { fontSize: `${fontSize.value}px` }).run()
-}
-
-const setTextColor = () => {
-  editor.value?.chain().focus().setColor(textColor.value).run()
-  showColorPicker.value = false
-}
-
-const setLineHeight = () => {
-  editor.value?.chain().focus().setLineHeight(lineHeight.value).run()
-}
-
-const insertTable = () => {
-  editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-}
-
-const insertImage = () => {
-  const url = window.prompt('Enter image URL:')
-  if (url) {
-    editor.value?.chain().focus().setImage({ src: url }).run()
+// Fetch memo if editing existing
+const fetchMemo = async (id) => {
+  try {
+    isLoading.value = true
+    loadingMessage.value = 'Loading memo...'
+    
+    const response = await axios.get(`${API_BASE_URL}/memos/${id}`, {
+      headers: getAuthHeader()
+    })
+    
+    const memo = response.data.data
+    
+    // Update editor content
+    if (editor.value && memo.content) {
+      editor.value.commands.setContent(memo.content)
+    }
+    
+    // Update memo metadata
+    memoTitle.value = memo.title || 'Untitled Memo'
+    memoReference.value = memo.reference
+    currentApprovalStatus.value = memo.status
+    currentApprover.value = memo.currentApproverName || ''
+    
+    // Update font settings if they exist in metadata
+    if (memo.metadata) {
+      fontFamily.value = memo.metadata.fontFamily || 'Century Gothic'
+      fontSize.value = memo.metadata.fontSize || 12
+      lineHeight.value = memo.metadata.lineHeight || '1.5'
+    }
+    
+    // Set last saved state
+    lastSavedContent.value = memo.content
+    lastSavedTitle.value = memo.title
+    
+    // Clear any draft from localStorage
+    clearDraft()
+    
+  } catch (error) {
+    console.error('Error fetching memo:', error)
+    showToastMessage('Failed to load memo', 'error')
+    
+    // Check if we have a draft to restore
+    checkForDraft()
+  } finally {
+    isLoading.value = false
   }
 }
 
-const insertLink = () => {
-  const url = window.prompt('Enter URL:')
-  if (url) {
-    editor.value?.chain().focus().setLink({ href: url }).run()
+// Fetch approvers list (only when needed for sending)
+const fetchApprovers = async () => {
+  try {
+    isLoadingApprovers.value = true
+    console.log('🔍 Fetching approvers...')
+    
+    const response = await axios.get(`${API_BASE_URL}/auth/users`, {
+      headers: getAuthHeader()
+    })
+    
+    console.log('✅ Raw API Response:', response.data)
+    
+    // Handle the nested response structure
+    const usersData = response.data?.data?.data || []
+    
+    // Map the users to the format expected by the select dropdown
+    approversList.value = usersData.map(user => ({
+      id: user.id,
+      name: user.username,
+      role: user.role || 'Staff',
+      department: user.department || 'General',
+      email: user.email
+    }))
+    
+    if (approversList.value.length === 0) {
+      showToastMessage('No approvers available', 'info')
+    }
+    
+  } catch (error) {
+    console.error('❌ Error fetching approvers:', error)
+    showToastMessage('Failed to load approvers', 'error')
+    approversList.value = []
+  } finally {
+    isLoadingApprovers.value = false
   }
 }
 
-const insertHorizontalRule = () => {
-  editor.value?.chain().focus().setHorizontalRule().run()
+// Create new memo
+const createMemo = async () => {
+  try {
+    isSaving.value = true
+    const user = getCurrentUser()
+    
+    // Validate title
+    if (!memoTitle.value || memoTitle.value.trim() === '') {
+      showToastMessage('Please enter a document title', 'error')
+      isSaving.value = false
+      return
+    }
+    
+    const payload = {
+      title: memoTitle.value.trim(),
+      content: editor.value?.getHTML() || '',
+      branch: user.branch || 'Head Office',
+      metadata: {
+        fontFamily: fontFamily.value,
+        fontSize: fontSize.value,
+        lineHeight: lineHeight.value,
+        wordCount: wordCount.value,
+        characterCount: charCount.value,
+      }
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/memos`, payload, {
+      headers: getAuthHeader()
+    })
+    
+    const newMemo = response.data.data
+    memoId.value = newMemo.id
+    memoReference.value = newMemo.reference
+    
+    // Update URL to include the memo ID without reloading the page
+    router.replace({ params: { id: newMemo.id } })
+    
+    // Set last saved state
+    lastSavedContent.value = payload.content
+    lastSavedTitle.value = payload.title
+    hasUnsavedChanges.value = false
+    
+    // Clear any draft
+    clearDraft()
+    
+    showToastMessage('Memo created successfully', 'success')
+    return newMemo
+  } catch (error) {
+    console.error('Error creating memo:', error)
+    showToastMessage('Failed to create memo', 'error')
+    throw error
+  } finally {
+    isSaving.value = false
+  }
 }
 
-// Load DOCX template function
+// Update memo
+const updateMemo = async (silent = false) => {
+  if (!memoId.value) return
+  
+  try {
+    if (!silent) isSaving.value = true
+    
+    // Validate title
+    if (!memoTitle.value || memoTitle.value.trim() === '') {
+      if (!silent) showToastMessage('Please enter a document title', 'error')
+      return
+    }
+    
+    const payload = {
+      title: memoTitle.value.trim(),
+      content: editor.value?.getHTML() || '',
+      metadata: {
+        fontFamily: fontFamily.value,
+        fontSize: fontSize.value,
+        lineHeight: lineHeight.value,
+        wordCount: wordCount.value,
+        characterCount: charCount.value,
+      }
+    }
+    
+    const response = await axios.put(`${API_BASE_URL}/memos/${memoId.value}`, payload, {
+      headers: getAuthHeader()
+    })
+    
+    // Set last saved state
+    lastSavedContent.value = payload.content
+    lastSavedTitle.value = payload.title
+    hasUnsavedChanges.value = false
+    
+    // Clear any draft
+    clearDraft()
+    
+    if (!silent) {
+      showToastMessage('Memo updated successfully', 'success')
+    }
+    
+    return response.data.data
+  } catch (error) {
+    console.error('Error updating memo:', error)
+    if (!silent) showToastMessage('Failed to update memo', 'error')
+    throw error
+  } finally {
+    if (!silent) isSaving.value = false
+  }
+}
+
+// Save memo (create or update)
+const handleSave = async () => {
+  if (!editor.value?.getHTML() || editor.value.getHTML() === '<p></p>') {
+    showToastMessage('Cannot save empty memo', 'error')
+    return
+  }
+  
+  // Validate title
+  if (!memoTitle.value || memoTitle.value.trim() === '') {
+    showToastMessage('Please enter a document title', 'error')
+    return
+  }
+  
+  try {
+    if (memoId.value) {
+      await updateMemo()
+    } else {
+      await createMemo()
+    }
+  } catch (error) {
+    // Error already handled in functions
+  }
+}
+
+// Open approver modal and fetch approvers
+const openApproverModal = async () => {
+  // Save before opening modal
+  if (hasUnsavedChanges.value) {
+    await handleSave()
+  }
+  showApproverModal.value = true
+  await fetchApprovers()
+}
+
+// Close approver modal and reset form
+const closeApproverModal = () => {
+  showApproverModal.value = false
+  selectedApprover.value = ''
+  priority.value = 'MEDIUM'
+  dueDate.value = ''
+  approverMessage.value = ''
+}
+
+// Send for approval (only called when user clicks Send)
+const sendToApprover = async () => {
+  if (!selectedApprover.value) {
+    showToastMessage('Please select an approver', 'error')
+    return
+  }
+  
+  // First save the memo if it hasn't been saved yet
+  if (!memoId.value || hasUnsavedChanges.value) {
+    await handleSave()
+  }
+  
+  try {
+    isSending.value = true
+    
+    const payload = {
+      approverId: selectedApprover.value,
+      priority: priority.value,
+      dueDate: dueDate.value || undefined,
+      message: approverMessage.value || undefined,
+      notifyByEmail: notifyByEmail.value,
+    }
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/memos/${memoId.value}/send-approval`,
+      payload,
+      { headers: getAuthHeader() }
+    )
+    
+    // Update local state
+    currentApprovalStatus.value = 'Pending Approval'
+    const approver = approversList.value.find(a => a.id === selectedApprover.value)
+    currentApprover.value = approver?.name || 'Approver'
+    
+    showToastMessage(`Memo sent to ${approver?.name} for approval`, 'success')
+    showApproverModal.value = false
+    
+    // Reset form
+    selectedApprover.value = ''
+    priority.value = 'MEDIUM'
+    dueDate.value = ''
+    approverMessage.value = ''
+    
+  } catch (error) {
+    console.error('Error sending for approval:', error)
+    showToastMessage('Failed to send for approval', 'error')
+  } finally {
+    isSending.value = false
+  }
+}
+
+// Load DOCX template
 const loadDocxTemplate = async (fileUrl) => {
   try {
     isLoading.value = true
-    documentInfo.value = 'Loading template...'
+    loadingMessage.value = 'Loading template...'
     
     const response = await fetch(fileUrl)
     const arrayBuffer = await response.arrayBuffer()
@@ -826,28 +1073,26 @@ const loadDocxTemplate = async (fileUrl) => {
     }
     
     const fileName = fileUrl.split('/').pop() || 'memo-template.docx'
-    documentInfo.value = fileName
+    memoTitle.value = 'New Memo'
+    memoReference.value = ''
+    
+    // Set last saved state
+    lastSavedContent.value = html
+    lastSavedTitle.value = 'New Memo'
     
   } catch (error) {
     console.error('Error loading DOCX template:', error)
-    documentInfo.value = 'Error loading template'
-    
-    if (editor.value) {
-      editor.value.commands.setContent(`
-        <h1 style="text-align: center;">MEMORANDUM</h1>
-        <p><strong>Error loading template:</strong> ${error.message}</p>
-        <p>Please check that the template file exists and try again.</p>
-      `)
-    }
+    showToastMessage('Error loading template', 'error')
   } finally {
     isLoading.value = false
   }
 }
 
+// Load DOCX from file
 const loadDocxFromFile = async (file) => {
   try {
     isLoading.value = true
-    documentInfo.value = file.name
+    loadingMessage.value = 'Loading file...'
     
     const arrayBuffer = await file.arrayBuffer()
     
@@ -867,82 +1112,130 @@ const loadDocxFromFile = async (file) => {
       editor.value.commands.setContent(html)
     }
     
+    // Clear memo ID since this is a new file
+    memoId.value = null
+    // Use the filename without extension as the title
+    memoTitle.value = file.name.replace(/\.[^/.]+$/, '')
+    memoReference.value = ''
+    
+    // Set last saved state
+    lastSavedContent.value = html
+    lastSavedTitle.value = memoTitle.value
+    
+    showToastMessage('File loaded successfully', 'success')
+    
   } catch (error) {
     console.error('Error loading DOCX file:', error)
-    documentInfo.value = 'Error loading file'
+    showToastMessage('Error loading file', 'error')
   } finally {
     isLoading.value = false
   }
 }
 
-// Approval workflow methods
-const sendToApprover = () => {
-  if (!selectedApprover.value) {
-    showToastMessage('Please select an approver', 'error')
-    return
+// Utility Methods
+const goToDashboard = () => {
+  if (hasUnsavedChanges.value) {
+    if (confirm('You have unsaved changes. Leave anyway?')) {
+      router.push('/main-dashboard')
+    }
+  } else {
+    router.push('/main-dashboard')
   }
-  
-  const approver = approversList.value.find(a => a.id === parseInt(selectedApprover.value))
-  
-  // Add to approval history
-  approvalHistory.value.push({
-    action: 'Sent for Approval',
-    approver: approver.name,
-    role: approver.role,
-    date: new Date(),
-    comment: approverMessage.value || 'No comment',
-    priority: priority.value,
-  })
-  
-  // Update status
-  currentApprovalStatus.value = 'Pending Approval'
-  currentApprover.value = approver.name
-  
-  // Close modal
-  showApproverModal.value = false
-  
-  // Save the memo first
-  handleSave()
-  
-  // Show success message
-  showToastMessage(`Memo sent to ${approver.name} for approval`, 'success')
-  
-  // Reset form
-  selectedApprover.value = ''
-  priority.value = 'medium'
-  dueDate.value = ''
-  approverMessage.value = ''
 }
 
-const viewApprovalFlow = () => {
-  // This could open a modal showing the full approval flow
-  showToastMessage('Approval flow view coming soon', 'info')
+const toggleMenu = (menu) => {
+  activeMenu.value = activeMenu.value === menu ? null : menu
+}
+
+const handleNew = () => {
+  if (hasUnsavedChanges.value) {
+    if (!confirm('Clear current memo and start a new one? Unsaved changes will be lost.')) {
+      return
+    }
+  }
+  
+  editor.value?.commands.clearContent()
+  editor.value?.commands.setContent('<p>Start typing your memo here...</p>')
+  memoId.value = null
+  memoTitle.value = 'New Memo'
+  memoReference.value = ''
+  currentApprovalStatus.value = 'Draft'
+  currentApprover.value = ''
+  
+  // Update URL to remove memo ID
+  router.replace({ params: {} })
+  
+  // Clear last saved state
+  lastSavedContent.value = ''
+  lastSavedTitle.value = 'New Memo'
+  hasUnsavedChanges.value = false
+  
+  // Clear any draft
+  clearDraft()
+  
   activeMenu.value = null
 }
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+const handleOpen = () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.docx,.doc'
+  input.onchange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      loadDocxFromFile(file)
+    }
+  }
+  input.click()
+  activeMenu.value = null
 }
 
-const showToastMessage = (message, type = 'success') => {
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
+const handleSaveAs = () => {
+  const content = editor.value?.getHTML()
+  const filename = memoTitle.value || 'memo'
+  const fullFilename = `${filename}-${new Date().toISOString().slice(0, 10)}.html`
   
-  setTimeout(() => {
-    showToast.value = false
-  }, 3000)
+  const blob = new Blob([content], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fullFilename
+  a.click()
+  showToastMessage('File saved successfully', 'success')
+  activeMenu.value = null
 }
 
-// Load the default template on component mount
+// Watch for unsaved changes and save to localStorage as backup
+watch([hasUnsavedChanges, memoId], () => {
+  if (hasUnsavedChanges.value && memoId.value) {
+    saveDraftToLocal()
+  } else if (!hasUnsavedChanges.value && memoId.value) {
+    clearDraft()
+  }
+})
+
+// Watch for page unload to warn about unsaved changes
 onMounted(() => {
-  loadDocxTemplate(defaultTemplate)
+  window.addEventListener('beforeunload', (e) => {
+    if (hasUnsavedChanges.value) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+  })
+})
+
+// ============ LIFECYCLE ============
+onMounted(() => {
+  // Load template or existing memo
+  if (memoId.value) {
+    fetchMemo(memoId.value)
+  } else {
+    loadDocxTemplate(defaultTemplate)
+    // Check for any drafts
+    checkForDraft()
+  }
   
+  // Click outside handler for menus
   document.addEventListener('click', () => {
     activeMenu.value = null
     showColorPicker.value = false
@@ -950,14 +1243,16 @@ onMounted(() => {
 })
 
 // Cleanup
-onMounted(() => {
-  return () => {
-    editor.value?.destroy()
-  }
+onUnmounted(() => {
+  editor.value?.destroy()
+  autoSaveDebounced.cancel()
+  window.removeEventListener('beforeunload', () => {})
+  document.removeEventListener('click', () => {})
 })
 </script>
 
 <style scoped>
+/* Consolidated CSS - removed duplicates */
 .memo-editor-container {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background-color: var(--color-white);
@@ -965,7 +1260,7 @@ onMounted(() => {
   border: 1px solid var(--color-gray-200);
   overflow: hidden;
   position: relative;
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -983,6 +1278,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .dark .editor-header {
@@ -994,6 +1290,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1;
 }
 
 .dashboard-btn {
@@ -1009,6 +1306,7 @@ onMounted(() => {
   font-size: 0.875rem;
   transition: all 0.2s;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .dark .dashboard-btn {
@@ -1025,30 +1323,97 @@ onMounted(() => {
   background-color: var(--color-brand-500/20);
 }
 
-.memo-title-indicator {
+/* Title Input Styles */
+.title-input-container {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  background-color: var(--color-gray-100);
-  border-radius: 2rem;
-  font-size: 0.875rem;
-  color: var(--color-gray-700);
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 250px;
+  position: relative;
+}
+
+.title-input {
+  flex: 1;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.5rem;
+  background-color: var(--color-white);
+  color: var(--color-gray-900);
+  transition: all 0.2s;
+}
+
+.dark .title-input {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-gray-700);
+  color: var(--color-gray-100);
+}
+
+.title-input:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.dark .title-input:focus {
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px rgba(70, 95, 255, 0.2);
+}
+
+.auto-save-status {
+  position: absolute;
+  right: 0;
+  top: -1.5rem;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
   white-space: nowrap;
 }
 
-.dark .memo-title-indicator {
+.auto-save-status.success {
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
+}
+
+.dark .auto-save-status.success {
+  background-color: var(--color-success-500/15);
+  color: var(--color-success-500);
+}
+
+.auto-save-status.error {
+  background-color: var(--color-error-50);
+  color: var(--color-error-600);
+}
+
+.dark .auto-save-status.error {
+  background-color: var(--color-error-500/15);
+  color: var(--color-error-500);
+}
+
+.reference-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--color-gray-100);
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-600);
+  white-space: nowrap;
+}
+
+.dark .reference-badge {
   background-color: var(--color-gray-800);
-  color: var(--color-gray-300);
+  color: var(--color-gray-400);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .action-btn {
@@ -1441,163 +1806,7 @@ onMounted(() => {
   }
 }
 
-/* Approval Menu */
-.menubar-btn.approval-menu-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.menu-badge {
-  background-color: var(--color-brand-500);
-  color: white;
-  font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 1rem;
-  min-width: 1.2rem;
-  text-align: center;
-}
-
-.approval-dropdown {
-  width: 18rem;
-}
-
-.dropdown-header {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  color: var(--color-gray-700);
-  border-bottom: 1px solid var(--color-gray-200);
-}
-
-.dark .dropdown-header {
-  color: var(--color-gray-300);
-  border-bottom-color: var(--color-gray-700);
-}
-
-.empty-history {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--color-gray-500);
-  font-size: 0.875rem;
-}
-
-.history-item {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-gray-100);
-}
-
-.dark .history-item {
-  border-bottom-color: var(--color-gray-800);
-}
-
-.history-item:last-child {
-  border-bottom: none;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-}
-
-.history-action {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 1rem;
-}
-
-.history-action.sent {
-  background-color: #E3F2FD;
-  color: #1976D2;
-}
-.history-action.approved {
-  background-color: #E8F5E9;
-  color: #2E7D32;
-}
-.history-action.rejected {
-  background-color: #FFEBEE;
-  color: #C62828;
-}
-
-.dark .history-action.sent {
-  background-color: #1A3A4A;
-  color: #64B5F6;
-}
-.dark .history-action.approved {
-  background-color: #1B3A2B;
-  color: #81C784;
-}
-.dark .history-action.rejected {
-  background-color: #4A2A2A;
-  color: #E57373;
-}
-
-.history-date {
-  font-size: 0.7rem;
-  color: var(--color-gray-500);
-}
-
-.history-details {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-  font-size: 0.8rem;
-}
-
-.history-approver {
-  font-weight: 500;
-  color: var(--color-gray-900);
-}
-
-.dark .history-approver {
-  color: var(--color-gray-100);
-}
-
-.history-role {
-  color: var(--color-gray-500);
-  font-size: 0.7rem;
-}
-
-.history-comment {
-  font-size: 0.75rem;
-  color: var(--color-gray-600);
-  font-style: italic;
-  background-color: var(--color-gray-50);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  margin-top: 0.25rem;
-}
-
-.dark .history-comment {
-  color: var(--color-gray-400);
-  background-color: var(--color-gray-800);
-}
-
-.approval-action {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Status Bar Approver Indicator */
-.approver-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  background-color: #FFF3E0;
-  color: #FF8C00;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-}
-
-.dark .approver-indicator {
-  background-color: #4A3A2A;
-  color: #FFB74D;
-}
-
-/* Menubar Styles (existing) */
+/* Menubar Styles */
 .menubar {
   background-color: var(--color-gray-50);
   border-bottom: 1px solid var(--color-gray-200);
@@ -1605,6 +1814,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .dark .menubar {
@@ -1689,7 +1899,7 @@ onMounted(() => {
   background-color: var(--color-gray-700);
 }
 
-/* Toolbar Styles (existing) */
+/* Toolbar Styles */
 .toolbar {
   background-color: var(--color-white);
   border-bottom: 1px solid var(--color-gray-200);
@@ -1698,6 +1908,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.25rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .dark .toolbar {
@@ -1827,6 +2038,7 @@ onMounted(() => {
   padding: 0 2rem;
   display: flex;
   align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .dark .ruler {
@@ -1914,6 +2126,7 @@ onMounted(() => {
   background-color: var(--color-white);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   margin: 0 auto;
+  max-width: 100%;
 }
 
 .dark .document-page {
@@ -1991,12 +2204,55 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .dark .status-bar {
   background-color: var(--color-gray-800);
   border-top-color: var(--color-gray-700);
   color: var(--color-gray-400);
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.approver-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background-color: #FFF3E0;
+  color: #FF8C00;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+}
+
+.dark .approver-indicator {
+  background-color: #4A3A2A;
+  color: #FFB74D;
+}
+
+.document-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background-color: var(--color-brand-50);
+  color: var(--color-brand-600);
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .document-indicator {
+  background-color: var(--color-brand-500/10);
+  color: var(--color-brand-400);
 }
 
 /* Loading Overlay */
@@ -2042,33 +2298,6 @@ onMounted(() => {
   color: var(--color-gray-300);
 }
 
-/* Status Bar Document Indicator */
-.status-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.document-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  background-color: var(--color-brand-50);
-  color: var(--color-brand-600);
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dark .document-indicator {
-  background-color: var(--color-brand-500/10);
-  color: var(--color-brand-400);
-}
-
 /* Editor placeholder */
 .editor-placeholder {
   display: flex;
@@ -2110,8 +2339,18 @@ onMounted(() => {
     align-items: stretch;
   }
   
+  .header-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .title-input-container {
+    width: 100%;
+  }
+  
   .header-actions {
     flex-wrap: wrap;
+    justify-content: center;
   }
   
   .action-btn {
