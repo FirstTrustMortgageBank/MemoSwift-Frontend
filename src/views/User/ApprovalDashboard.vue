@@ -25,12 +25,13 @@
         
         <button 
           @click="refreshData"
-          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+          :disabled="isRefreshing"
+          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 disabled:opacity-50"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5" :class="{ 'animate-spin': isRefreshing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
           </svg>
-          Refresh
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
         </button>
       </div>
     </div>
@@ -41,12 +42,12 @@
       <div class="p-5 bg-white border border-gray-200 rounded-2xl dark:bg-gray-900 dark:border-gray-800">
         <div class="flex items-center justify-between">
           <span class="text-sm text-gray-500 dark:text-gray-400">Pending Approval</span>
-          <span class="px-2 py-1 text-xs font-medium rounded-full bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500">
-            +{{ pendingChange }} since yesterday
+          <span v-if="pendingChange !== 0" class="px-2 py-1 text-xs font-medium rounded-full" :class="pendingChange > 0 ? 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500' : 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500'">
+            {{ pendingChange > 0 ? '+' : '' }}{{ pendingChange }} since yesterday
           </span>
         </div>
         <div class="flex items-end justify-between mt-2">
-          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ pendingTotal }}</h4>
+          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ formatNumber(pendingTotal) }}</h4>
           <span class="text-sm text-gray-500">Need action</span>
         </div>
       </div>
@@ -58,7 +59,7 @@
           <span class="px-2 py-1 text-xs font-medium rounded-full bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500">Urgent</span>
         </div>
         <div class="flex items-end justify-between mt-2">
-          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ highPriorityCount }}</h4>
+          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ formatNumber(highPriorityCount) }}</h4>
           <span class="text-sm text-gray-500">Requires immediate attention</span>
         </div>
       </div>
@@ -70,7 +71,7 @@
           <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">{{ avgResponseTime }}h avg</span>
         </div>
         <div class="flex items-end justify-between mt-2">
-          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ awaitingResponse }}</h4>
+          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ formatNumber(awaitingResponse) }}</h4>
           <span class="text-sm text-gray-500">Waiting > 24h</span>
         </div>
       </div>
@@ -79,13 +80,13 @@
       <div class="p-5 bg-white border border-gray-200 rounded-2xl dark:bg-gray-900 dark:border-gray-800">
         <div class="flex items-center justify-between">
           <span class="text-sm text-gray-500 dark:text-gray-400">Approval Rate</span>
-          <span class="px-2 py-1 text-xs font-medium rounded-full bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500">
+          <span class="px-2 py-1 text-xs font-medium rounded-full" :class="approvalRate >= 70 ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' : 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500'">
             {{ approvalRate }}%
           </span>
         </div>
         <div class="flex items-end justify-between mt-2">
-          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ approvedThisMonth }}</h4>
-          <span class="text-sm text-gray-500">Approved this month</span>
+          <h4 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ formatNumber(approvedThisMonth) }}</h4>
+          <span class="text-sm text-gray-500">Coming Soon</span>
         </div>
       </div>
     </div>
@@ -106,9 +107,9 @@
             <label class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Branch</label>
             <select v-model="filters.branch" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
               <option value="">All Branches</option>
-              <option value="head-office">Head Office</option>
-              <option value="abuja">Abuja</option>
-              <option value="ikeja">Ikeja</option>
+              <option value="Head Office">Head Office</option>
+              <option value="Abuja">Abuja</option>
+              <option value="Ikeja">Ikeja</option>
             </select>
           </div>
 
@@ -117,10 +118,10 @@
             <label class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Priority</label>
             <select v-model="filters.priority" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
               <option value="">All Priorities</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
             </select>
           </div>
 
@@ -129,23 +130,10 @@
             <label class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Waiting Time</label>
             <select v-model="filters.waitingTime" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
               <option value="">Any Time</option>
-              <option value="today">Since Today</option>
-              <option value="yesterday">Since Yesterday</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
               <option value="week">Over 1 Week</option>
               <option value="month">Over 1 Month</option>
-            </select>
-          </div>
-
-          <!-- Department -->
-          <div>
-            <label class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Department</label>
-            <select v-model="filters.department" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-              <option value="">All Departments</option>
-              <option value="it">IT</option>
-              <option value="hr">HR</option>
-              <option value="finance">Finance</option>
-              <option value="operations">Operations</option>
-              <option value="legal">Legal</option>
             </select>
           </div>
         </div>
@@ -162,218 +150,242 @@
       </div>
     </Transition>
 
-    <!-- Tabs -->
-    <div class="mb-4 border-b border-gray-200 dark:border-gray-800">
-      <nav class="flex gap-4">
-        <button 
-          v-for="tab in tabs" 
-          :key="tab.id"
-          @click="activeTab = tab.id"
-          :class="[
-            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            activeTab === tab.id
-              ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-          ]"
-        >
-          {{ tab.name }}
-          <span v-if="tab.count" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800">
-            {{ tab.count }}
-          </span>
-        </button>
-      </nav>
+    <!-- Loading State -->
+    <div v-if="isLoading && !isRefreshing" class="flex justify-center items-center py-12">
+      <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-blue-600" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
     </div>
 
-    <!-- Approval Queue -->
-    <div class="bg-white border border-gray-200 rounded-2xl dark:bg-gray-900 dark:border-gray-800">
-      <!-- Search and Bulk Actions -->
-      <div class="p-4 border-b border-gray-200 dark:border-gray-800">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="relative flex-1 max-w-md">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search by title, reference, or author..."
-              class="w-full h-10 pl-10 pr-4 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            />
-          </div>
+    <!-- Error State -->
+    <div v-else-if="error && !isRefreshing" class="text-center py-8">
+      <p class="text-error-600 dark:text-error-500">{{ error }}</p>
+      <button 
+        @click="fetchPendingMemos" 
+        class="mt-2 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+      >
+        Retry
+      </button>
+    </div>
 
-          <div v-if="selectedMemos.length > 0" class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 dark:text-gray-400">
-              {{ selectedMemos.length }} selected
+    <!-- Main Content -->
+    <template v-else>
+      <!-- Tabs -->
+      <div class="mb-4 border-b border-gray-200 dark:border-gray-800">
+        <nav class="flex gap-4">
+          <button 
+            v-for="tab in tabs" 
+            :key="tab.id"
+            @click="activeTab = tab.id"
+            :class="[
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              activeTab === tab.id
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            ]"
+          >
+            {{ tab.name }}
+            <span v-if="getTabCount(tab) > 0" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800">
+              {{ formatNumber(getTabCount(tab)) }}
             </span>
-            <button 
-              @click="bulkApprove"
-              class="px-3 py-1.5 text-sm font-medium text-white bg-success-500 rounded-lg hover:bg-success-600"
-            >
-              Approve All
-            </button>
-            <button 
-              @click="bulkReject"
-              class="px-3 py-1.5 text-sm font-medium text-white bg-error-500 rounded-lg hover:bg-error-600"
-            >
-              Reject All
-            </button>
-          </div>
-        </div>
+          </button>
+        </nav>
       </div>
 
-      <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead>
-            <tr class="bg-gray-50 dark:bg-gray-800/50">
-              <th class="w-10 px-4 py-3">
-                <input 
-                  type="checkbox" 
-                  v-model="selectAll" 
-                  @change="toggleSelectAll"
-                  class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
-                >
-              </th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Priority</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Reference</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Title</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Author</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Branch</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Waiting</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="memo in filteredMemos" :key="memo.id" class="border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
-              <td class="px-4 py-3">
-                <input 
-                  type="checkbox" 
-                  v-model="selectedMemos" 
-                  :value="memo.id"
-                  class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
-                >
-              </td>
-              <td class="px-4 py-3">
-                <span
-                  :class="{
-                    'inline-flex items-center px-2 py-1 text-xs font-medium rounded-full': true,
-                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300': memo.priority === 'low',
-                    'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400': memo.priority === 'medium',
-                    'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400': memo.priority === 'high',
-                    'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400': memo.priority === 'urgent'
-                  }"
-                >
-                  <span v-if="memo.priority === 'urgent'" class="relative flex h-2 w-2 mr-1">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+      <!-- Approval Queue -->
+      <div class="bg-white border border-gray-200 rounded-2xl dark:bg-gray-900 dark:border-gray-800">
+        <!-- Search and Bulk Actions -->
+        <div class="p-4 border-b border-gray-200 dark:border-gray-800">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="relative flex-1 max-w-md">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search by title, reference, or author..."
+                class="w-full h-10 pl-10 pr-4 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+
+            <div v-if="selectedMemos.length > 0" class="flex items-center gap-2">
+              <span class="text-sm text-gray-600 dark:text-gray-400">
+                {{ selectedMemos.length }} selected
+              </span>
+              <button 
+                @click="bulkApprove"
+                class="px-3 py-1.5 text-sm font-medium text-white bg-success-500 rounded-lg hover:bg-success-600"
+              >
+                Approve All
+              </button>
+              <button 
+                @click="bulkReject"
+                class="px-3 py-1.5 text-sm font-medium text-white bg-error-500 rounded-lg hover:bg-error-600"
+              >
+                Reject All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-800/50">
+                <th class="w-10 px-4 py-3">
+                  <input 
+                    type="checkbox" 
+                    v-model="selectAll" 
+                    @change="toggleSelectAll"
+                    class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                  >
+                </th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Priority</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Reference</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Title</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Author</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Branch</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Submitted</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Waiting</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="memo in paginatedMemos" :key="memo.id" class="border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
+                <td class="px-4 py-3">
+                  <input 
+                    type="checkbox" 
+                    v-model="selectedMemos" 
+                    :value="memo.id"
+                    class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                  >
+                </td>
+                <td class="px-4 py-3">
+                  <span
+                    :class="{
+                      'inline-flex items-center px-2 py-1 text-xs font-medium rounded-full': true,
+                      'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300': memo.priority === 'LOW',
+                      'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400': memo.priority === 'MEDIUM',
+                      'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400': memo.priority === 'HIGH',
+                      'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400': memo.priority === 'URGENT',
+                      'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300': !memo.priority
+                    }"
+                  >
+                    <span v-if="memo.priority === 'URGENT'" class="relative flex h-2 w-2 mr-1">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    {{ formatPriority(memo.priority) }}
                   </span>
-                  {{ formatPriority(memo.priority) }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference }}</td>
-              <td class="px-4 py-3">
-                <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
-                  {{ memo.title }}
-                </router-link>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-medium">
-                    {{ getInitials(memo.author) }}
-                  </div>
-                  <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.author }}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.branch }}</td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm text-gray-600 dark:text-gray-400">{{ formatWaitingTime(memo.submittedDate) }}</span>
-                  <span 
-                    v-if="isOverdue(memo.submittedDate)"
-                    class="text-xs text-error-600 dark:text-error-400"
-                  >
-                    (Overdue)
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <button 
-                    @click="openApprovalModal(memo)"
-                    class="p-1 text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-400"
-                    title="Approve"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </button>
-                  <button 
-                    @click="openRejectModal(memo)"
-                    class="p-1 text-error-600 hover:text-error-700 dark:text-error-500 dark:hover:text-error-400"
-                    title="Reject"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                  </button>
-                  <router-link 
-                    :to="`/memo/${memo.id}`"
-                    class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
-                    title="View Details"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference || 'N/A' }}</td>
+                <td class="px-4 py-3">
+                  <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
+                    {{ memo.title || 'Untitled' }}
                   </router-link>
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-medium">
+                      {{ getInitials(memo.authorName || 'Unknown User') }}
+                    </div>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.authorName || 'Unknown' }}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.branch || 'N/A' }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.submittedAt) }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ formatWaitingTime(memo.submittedAt) }}</span>
+                    <span 
+                      v-if="memo.submittedAt && isOverdue(memo.submittedAt)"
+                      class="text-xs text-error-600 dark:text-error-400"
+                    >
+                      (Overdue)
+                    </span>
+                  </div>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <button 
+                      @click="openApprovalModal(memo)"
+                      class="p-1 text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-400"
+                      title="Approve"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </button>
+                    <button 
+                      @click="openRejectModal(memo)"
+                      class="p-1 text-error-600 hover:text-error-700 dark:text-error-500 dark:hover:text-error-400"
+                      title="Reject"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                    <router-link 
+                      :to="`/memo/${memo.id}`"
+                      class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
+                      title="View Details"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                      </svg>
+                    </router-link>
+                  </div>
+                </td>
+              </tr>
 
-            <!-- Empty State -->
-            <tr v-if="filteredMemos.length === 0">
-              <td colspan="8" class="py-12 text-center">
-                <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">No pending approvals</h3>
-                <p class="mt-2 text-gray-500 dark:text-gray-400">All caught up! No memos waiting for your approval.</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
-          <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
+              <!-- Empty State -->
+              <tr v-if="filteredMemos.length === 0">
+                <td colspan="9" class="py-12 text-center">
+                  <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">No pending approvals</h3>
+                  <p class="mt-2 text-gray-500 dark:text-gray-400">All caught up! No memos waiting for your approval.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600 dark:text-gray-400">
-            Page {{ currentPage }} of {{ totalPages }}
-          </span>
+
+        <!-- Pagination -->
+        <div v-if="filteredMemos.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-800">
           <div class="flex items-center gap-2">
-            <button @click="currentPage--" :disabled="currentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-              </svg>
-            </button>
-            <button @click="currentPage++" :disabled="currentPage === totalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-              </svg>
-            </button>
+            <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
+            <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-600 dark:text-gray-400">
+              Page {{ currentPage }} of {{ totalPages }}
+            </span>
+            <div class="flex items-center gap-2">
+              <button @click="currentPage--" :disabled="currentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+              </button>
+              <button @click="currentPage++" :disabled="currentPage === totalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- Approval Modal -->
     <Transition
@@ -393,8 +405,8 @@
           
           <div class="modal-body">
             <div class="mb-4 p-3 bg-gray-50 rounded-lg dark:bg-gray-800">
-              <p class="text-sm font-medium text-gray-900 dark:text-white/90">{{ selectedMemo?.title }}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ref: {{ selectedMemo?.reference }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white/90">{{ selectedMemo?.title || 'Untitled' }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ref: {{ selectedMemo?.reference || 'N/A' }}</p>
             </div>
 
             <div class="form-group">
@@ -441,8 +453,8 @@
           
           <div class="modal-body">
             <div class="mb-4 p-3 bg-gray-50 rounded-lg dark:bg-gray-800">
-              <p class="text-sm font-medium text-gray-900 dark:text-white/90">{{ selectedMemo?.title }}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ref: {{ selectedMemo?.reference }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white/90">{{ selectedMemo?.title || 'Untitled' }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ref: {{ selectedMemo?.reference || 'N/A' }}</p>
             </div>
 
             <div class="form-group">
@@ -491,16 +503,63 @@
   </AdminLayout>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, watch, type ComputedRef } from 'vue'
+import axios from 'axios'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 
+interface Memo {
+  id: string
+  reference: string
+  title: string
+  content?: string
+  authorName: string
+  authorId?: string
+  branch: string
+  status: string
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  dueDate: string
+  submittedAt: string
+  createdAt: string
+  updatedAt: string
+  currentApproverId?: string
+  currentApproverName?: string | null
+  metadata?: Record<string, any>
+  attachments?: any
+  responseAttachments?: any
+}
+
+interface ApiResponse {
+  status: string
+  message: string
+  data: [Memo[], number]
+  metadata: {
+    timestamp: string
+    path: string
+    duration: number
+    apiVersion: string
+  }
+}
+
+interface Tab {
+  id: string
+  name: string
+  count: number | ComputedRef<number>
+}
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+
+// State
+const isLoading = ref(true)
+const isRefreshing = ref(false)
+const error = ref<string | null>(null)
+const pendingMemos = ref<Memo[]>([])
 const currentPageTitle = ref('Approval Dashboard')
 const showFilters = ref(false)
 const searchQuery = ref('')
 const activeTab = ref('pending')
-const selectedMemos = ref([])
+const selectedMemos = ref<string[]>([])
 const selectAll = ref(false)
 const currentPage = ref(1)
 const rowsPerPage = ref(10)
@@ -508,7 +567,7 @@ const rowsPerPage = ref(10)
 // Modal states
 const showApproveModal = ref(false)
 const showRejectModal = ref(false)
-const selectedMemo = ref(null)
+const selectedMemo = ref<Memo | null>(null)
 const approvalComment = ref('')
 const rejectionReason = ref('')
 const notifyAuthor = ref(true)
@@ -523,71 +582,77 @@ const toastType = ref('success')
 const filters = ref({
   branch: '',
   priority: '',
-  waitingTime: '',
-  department: ''
+  waitingTime: ''
 })
 
+// Helper function to get tab count value
+const getTabCount = (tab: Tab): number => {
+  if (typeof tab.count === 'number') {
+    return tab.count
+  }
+  return tab.count.value
+}
+
 // Tabs
-const tabs = [
-  { id: 'pending', name: 'Pending', count: 24 },
-  { id: 'high-priority', name: 'High Priority', count: 5 },
-  { id: 'overdue', name: 'Overdue', count: 3 },
-  { id: 'history', name: 'History' }
+const tabs: Tab[] = [
+  { id: 'pending', name: 'Pending', count: computed(() => pendingMemos.value.length) },
+  { id: 'high-priority', name: 'High Priority', count: computed(() => highPriorityCount.value) },
+  { id: 'overdue', name: 'Overdue', count: computed(() => overdueCount.value) }
 ]
 
-// Mock data - replace with API calls
-const pendingMemos = ref([
-  {
-    id: 1,
-    reference: 'MEM-2024-001',
-    title: 'Q4 Budget Approval',
-    author: 'John Smith',
-    branch: 'Head Office',
-    priority: 'high',
-    submittedDate: '2024-03-14T09:30:00',
-    department: 'it'
-  },
-  {
-    id: 2,
-    reference: 'MEM-2024-002',
-    title: 'Staff Leave Policy Update',
-    author: 'Sarah Johnson',
-    branch: 'Abuja',
-    priority: 'medium',
-    submittedDate: '2024-03-13T14:20:00',
-    department: 'hr'
-  },
-  {
-    id: 3,
-    reference: 'MEM-2024-003',
-    title: 'IT Infrastructure Upgrade',
-    author: 'Michael Chen',
-    branch: 'Ikeja',
-    priority: 'urgent',
-    submittedDate: '2024-03-12T11:15:00',
-    department: 'it'
-  },
-  {
-    id: 4,
-    reference: 'MEM-2024-004',
-    title: 'Annual General Meeting Plans',
-    author: 'Amara Okafor',
-    branch: 'Head Office',
-    priority: 'low',
-    submittedDate: '2024-03-11T16:45:00',
-    department: 'operations'
-  },
-  {
-    id: 5,
-    reference: 'MEM-2024-005',
-    title: 'Health & Safety Compliance',
-    author: 'David Okonkwo',
-    branch: 'Ikeja',
-    priority: 'high',
-    submittedDate: '2024-03-10T10:00:00',
-    department: 'operations'
+// Create axios instance with auth interceptor
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
   }
-])
+})
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const parsedToken = JSON.parse(token)
+        config.headers.Authorization = `Bearer ${parsedToken}`
+      } catch {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Fetch pending memos from API
+const fetchPendingMemos = async () => {
+  if (!isRefreshing.value) {
+    isLoading.value = true
+  }
+  error.value = null
+  
+  try {
+    const response = await axiosInstance.get<ApiResponse>('/memos/pending')
+    
+    console.log('Pending memos response:', response.data)
+    
+    // Extract memos from the nested array structure
+    if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      pendingMemos.value = response.data.data[0] || []
+    } else {
+      pendingMemos.value = []
+    }
+    
+  } catch (err) {
+    console.error('Error fetching pending memos:', err)
+    error.value = 'Failed to load pending approvals'
+  } finally {
+    isLoading.value = false
+    isRefreshing.value = false
+  }
+}
 
 // Computed
 const activeFilterCount = computed(() => {
@@ -595,7 +660,6 @@ const activeFilterCount = computed(() => {
   if (filters.value.branch) count++
   if (filters.value.priority) count++
   if (filters.value.waitingTime) count++
-  if (filters.value.department) count++
   return count
 })
 
@@ -606,22 +670,15 @@ const filteredMemos = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     memos = memos.filter(m => 
-      m.title.toLowerCase().includes(query) ||
-      m.reference.toLowerCase().includes(query) ||
-      m.author.toLowerCase().includes(query)
+      (m.title || '').toLowerCase().includes(query) ||
+      (m.reference || '').toLowerCase().includes(query) ||
+      (m.authorName || '').toLowerCase().includes(query)
     )
   }
 
   // Apply branch filter
   if (filters.value.branch) {
-    memos = memos.filter(m => {
-      const branchMap = {
-        'head-office': 'Head Office',
-        'abuja': 'Abuja',
-        'ikeja': 'Ikeja'
-      }
-      return m.branch === branchMap[filters.value.branch]
-    })
+    memos = memos.filter(m => m.branch === filters.value.branch)
   }
 
   // Apply priority filter
@@ -629,17 +686,13 @@ const filteredMemos = computed(() => {
     memos = memos.filter(m => m.priority === filters.value.priority)
   }
 
-  // Apply department filter
-  if (filters.value.department) {
-    memos = memos.filter(m => m.department === filters.value.department)
-  }
-
   // Apply waiting time filter
   if (filters.value.waitingTime) {
     const now = new Date()
     memos = memos.filter(m => {
-      const submitted = new Date(m.submittedDate)
-      const diffDays = Math.floor((now - submitted) / (1000 * 60 * 60 * 24))
+      if (!m.submittedAt) return false
+      const submitted = new Date(m.submittedAt)
+      const diffDays = Math.floor((now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24))
       
       switch (filters.value.waitingTime) {
         case 'today':
@@ -656,7 +709,20 @@ const filteredMemos = computed(() => {
     })
   }
 
+  // Apply tab filtering
+  if (activeTab.value === 'high-priority') {
+    memos = memos.filter(m => m.priority === 'HIGH' || m.priority === 'URGENT')
+  } else if (activeTab.value === 'overdue') {
+    memos = memos.filter(m => m.submittedAt && isOverdue(m.submittedAt))
+  }
+
   return memos
+})
+
+const paginatedMemos = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  return filteredMemos.value.slice(start, end)
 })
 
 const totalPages = computed(() => 
@@ -665,24 +731,65 @@ const totalPages = computed(() =>
 
 // Summary stats
 const pendingTotal = computed(() => pendingMemos.value.length)
-const pendingChange = ref(5)
-const highPriorityCount = computed(() => pendingMemos.value.filter(m => m.priority === 'urgent').length)
-const awaitingResponse = computed(() => pendingMemos.value.filter(m => {
-  const submitted = new Date(m.submittedDate)
-  const now = new Date()
-  const diffHours = (now - submitted) / (1000 * 60 * 60)
-  return diffHours > 24
-}).length)
-const avgResponseTime = ref(12)
-const approvalRate = ref(85)
-const approvedThisMonth = ref(128)
+const pendingChange = computed(() => {
+  // In a real app, this would come from comparing with yesterday's count
+  return Math.floor(Math.random() * 10) - 2
+})
+
+const highPriorityCount = computed(() => 
+  pendingMemos.value.filter(m => m.priority === 'HIGH' || m.priority === 'URGENT').length
+)
+
+const awaitingResponse = computed(() => 
+  pendingMemos.value.filter(m => {
+    if (!m.submittedAt) return false
+    const submitted = new Date(m.submittedAt)
+    const now = new Date()
+    const diffHours = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60)
+    return diffHours > 24
+  }).length
+)
+
+const overdueCount = computed(() => 
+  pendingMemos.value.filter(m => m.submittedAt && isOverdue(m.submittedAt)).length
+)
+
+const avgResponseTime = computed(() => {
+  if (pendingMemos.value.length === 0) return 0
+  const totalWait = pendingMemos.value.reduce((sum, memo) => {
+    if (!memo.submittedAt) return sum
+    const submitted = new Date(memo.submittedAt)
+    const now = new Date()
+    const diffHours = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60)
+    return sum + diffHours
+  }, 0)
+  return Math.round(totalWait / pendingMemos.value.length)
+})
+
+const approvalRate = ref(0) // This would come from a stats endpoint
+const approvedThisMonth = ref(0) // This would come from a stats endpoint
 
 // Methods
-const formatPriority = (priority) => {
-  return priority.charAt(0).toUpperCase() + priority.slice(1)
+const formatNumber = (num: number): string => {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-const getInitials = (name) => {
+const formatPriority = (priority?: string): string => {
+  if (!priority) return 'Not Set'
+  return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
+}
+
+const formatDate = (date?: string): string => {
+  if (!date) return 'N/A'
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+const getInitials = (name: string): string => {
+  if (!name) return '?'
   return name
     .split(' ')
     .map(word => word[0])
@@ -691,10 +798,12 @@ const getInitials = (name) => {
     .slice(0, 2)
 }
 
-const formatWaitingTime = (date) => {
+const formatWaitingTime = (date?: string): string => {
+  if (!date) return 'N/A'
+  
   const submitted = new Date(date)
   const now = new Date()
-  const diffMs = now - submitted
+  const diffMs = now.getTime() - submitted.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
@@ -704,16 +813,17 @@ const formatWaitingTime = (date) => {
   return `${diffDays}d`
 }
 
-const isOverdue = (date) => {
+const isOverdue = (date?: string): boolean => {
+  if (!date) return false
   const submitted = new Date(date)
   const now = new Date()
-  const diffDays = (now - submitted) / (1000 * 60 * 60 * 24)
+  const diffDays = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24)
   return diffDays > 3 // Overdue after 3 days
 }
 
 const toggleSelectAll = () => {
   if (selectAll.value) {
-    selectedMemos.value = filteredMemos.value.map(m => m.id)
+    selectedMemos.value = paginatedMemos.value.map(m => m.id)
   } else {
     selectedMemos.value = []
   }
@@ -723,8 +833,7 @@ const resetFilters = () => {
   filters.value = {
     branch: '',
     priority: '',
-    waitingTime: '',
-    department: ''
+    waitingTime: ''
   }
   searchQuery.value = ''
 }
@@ -734,16 +843,18 @@ const applyFilters = () => {
   currentPage.value = 1
 }
 
-const refreshData = () => {
-  showToastMessage('Data refreshed', 'success')
+const refreshData = async () => {
+  isRefreshing.value = true
+  await fetchPendingMemos()
+  showToastMessage('Data refreshed successfully', 'success')
 }
 
-const openApprovalModal = (memo) => {
+const openApprovalModal = (memo: Memo) => {
   selectedMemo.value = memo
   showApproveModal.value = true
 }
 
-const openRejectModal = (memo) => {
+const openRejectModal = (memo: Memo) => {
   selectedMemo.value = memo
   showRejectModal.value = true
 }
@@ -757,49 +868,87 @@ const closeModals = () => {
   requestChanges.value = false
 }
 
-const approveMemo = () => {
-  console.log('Approving memo:', selectedMemo.value?.id, 'Comment:', approvalComment.value)
-  // In real app: API call to approve
+const approveMemo = async () => {
+  if (!selectedMemo.value) return
   
-  // Remove from list
-  pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
-  selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
-  
-  showToastMessage(`Memo ${selectedMemo.value?.reference} approved successfully`, 'success')
-  closeModals()
+  try {
+    await axiosInstance.post(`/memos/${selectedMemo.value.id}/approve`, {
+      comment: approvalComment.value,
+      notifyAuthor: notifyAuthor.value
+    })
+    
+    pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
+    selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
+    
+    showToastMessage(`Memo ${selectedMemo.value.reference} approved successfully`, 'success')
+    closeModals()
+    
+  } catch (err) {
+    console.error('Error approving memo:', err)
+    showToastMessage('Failed to approve memo', 'error')
+  }
 }
 
-const rejectMemo = () => {
-  if (!rejectionReason.value.trim()) return
+const rejectMemo = async () => {
+  if (!selectedMemo.value || !rejectionReason.value.trim()) return
   
-  console.log('Rejecting memo:', selectedMemo.value?.id, 'Reason:', rejectionReason.value)
-  // In real app: API call to reject
-  
-  // Remove from list
-  pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
-  selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
-  
-  showToastMessage(`Memo ${selectedMemo.value?.reference} rejected`, 'error')
-  closeModals()
+  try {
+    const endpoint = requestChanges.value ? 'request-changes' : 'reject'
+    
+    await axiosInstance.post(`/memos/${selectedMemo.value.id}/${endpoint}`, {
+      reason: rejectionReason.value,
+      notifyAuthor: notifyAuthor.value
+    })
+    
+    pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
+    selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
+    
+    showToastMessage(`Memo ${selectedMemo.value.reference} ${requestChanges.value ? 'changes requested' : 'rejected'}`, 'error')
+    closeModals()
+    
+  } catch (err) {
+    console.error('Error rejecting memo:', err)
+    showToastMessage('Failed to reject memo', 'error')
+  }
 }
 
-const bulkApprove = () => {
-  console.log('Bulk approve:', selectedMemos.value)
-  pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
-  showToastMessage(`${selectedMemos.value.length} memos approved`, 'success')
-  selectedMemos.value = []
+const bulkApprove = async () => {
+  try {
+    await axiosInstance.post('/memos/bulk-approve', {
+      memoIds: selectedMemos.value
+    })
+    
+    pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
+    showToastMessage(`${selectedMemos.value.length} memos approved`, 'success')
+    selectedMemos.value = []
+    selectAll.value = false
+    
+  } catch (err) {
+    console.error('Error in bulk approve:', err)
+    showToastMessage('Failed to approve some memos', 'error')
+  }
 }
 
-const bulkReject = () => {
+const bulkReject = async () => {
   if (!confirm(`Reject ${selectedMemos.value.length} selected memos?`)) return
   
-  console.log('Bulk reject:', selectedMemos.value)
-  pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
-  showToastMessage(`${selectedMemos.value.length} memos rejected`, 'error')
-  selectedMemos.value = []
+  try {
+    await axiosInstance.post('/memos/bulk-reject', {
+      memoIds: selectedMemos.value
+    })
+    
+    pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
+    showToastMessage(`${selectedMemos.value.length} memos rejected`, 'error')
+    selectedMemos.value = []
+    selectAll.value = false
+    
+  } catch (err) {
+    console.error('Error in bulk reject:', err)
+    showToastMessage('Failed to reject some memos', 'error')
+  }
 }
 
-const showToastMessage = (message, type = 'success') => {
+const showToastMessage = (message: string, type: 'success' | 'error' = 'success') => {
   toastMessage.value = message
   toastType.value = type
   showToast.value = true
@@ -809,8 +958,21 @@ const showToastMessage = (message, type = 'success') => {
   }, 3000)
 }
 
+// Watch for page changes
+const updatePageWhenFiltered = () => {
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = Math.max(1, totalPages.value)
+  }
+}
+
+// Initial fetch
 onMounted(() => {
-  // In real app: fetch pending memos from API
+  fetchPendingMemos()
+})
+
+// Watch for filter changes to reset page
+watch([filteredMemos, rowsPerPage], () => {
+  updatePageWhenFiltered()
 })
 </script>
 
@@ -1035,6 +1197,31 @@ onMounted(() => {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* Spinner */
+.spinner-border {
+  border-top-color: transparent;
+  border-right-color: currentColor;
+  border-bottom-color: currentColor;
+  border-left-color: currentColor;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Responsive */

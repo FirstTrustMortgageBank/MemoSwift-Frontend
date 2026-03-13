@@ -268,11 +268,6 @@ const menuGroups = [
         path: "/memo/:id",
       },
       {
-        icon: TaskIcon,
-        name: "Template Management",
-        path: "/template-management",
-      },
-      {
         icon: DocsIcon,
         name: "Document Collaboration",
         path: "/document-collaboration",

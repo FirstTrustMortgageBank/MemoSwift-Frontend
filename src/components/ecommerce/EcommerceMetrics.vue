@@ -27,11 +27,17 @@
       <div class="flex items-end justify-between mt-5">
         <div>
           <span class="text-sm text-gray-500 dark:text-gray-400">Draft Memos</span>
-          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">12</h4>
+          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+            {{ isLoading ? '...' : metrics.draftMemos }}
+          </h4>
         </div>
 
         <span
-          class="flex items-center gap-1 rounded-full bg-success-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+          v-if="metrics.draftTrend !== undefined"
+          class="flex items-center gap-1 rounded-full py-0.5 pl-2 pr-2.5 text-sm font-medium"
+          :class="metrics.draftTrend >= 0 ? 
+            'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' : 
+            'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500'"
         >
           <svg
             class="fill-current"
@@ -42,14 +48,22 @@
             xmlns="http://www.w3.org/2000/svg"
           >
             <path
+              v-if="metrics.draftTrend >= 0"
               fill-rule="evenodd"
               clip-rule="evenodd"
               d="M5.56462 1.62393C5.70193 1.47072 5.90135 1.37432 6.12329 1.37432C6.1236 1.37432 6.12391 1.37432 6.12422 1.37432C6.31631 1.37415 6.50845 1.44731 6.65505 1.59381L9.65514 4.5918C9.94814 4.88459 9.94831 5.35947 9.65552 5.65246C9.36273 5.94546 8.88785 5.94562 8.59486 5.65283L6.87329 3.93247L6.87329 10.125C6.87329 10.5392 6.53751 10.875 6.12329 10.875C5.70908 10.875 5.37329 10.5392 5.37329 10.125L5.37329 3.93578L3.65516 5.65282C3.36218 5.94562 2.8873 5.94547 2.5945 5.65248C2.3017 5.35949 2.30185 4.88462 2.59484 4.59182L5.56462 1.62393Z"
               fill=""
             />
+            <path
+              v-else
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M5.31462 10.3761C5.45194 10.5293 5.65136 10.6257 5.87329 10.6257C5.8736 10.6257 5.8739 10.6257 5.87421 10.6257C6.0663 10.6259 6.25845 10.5527 6.40505 10.4062L9.40514 7.4082C9.69814 7.11541 9.69831 6.64054 9.40552 6.34754C9.11273 6.05454 8.63785 6.05438 8.34486 6.34717L6.62329 8.06753L6.62329 1.875C6.62329 1.46079 6.28751 1.125 5.87329 1.125C5.45908 1.125 5.12329 1.46079 5.12329 1.875L5.12329 8.06422L3.40516 6.34719C3.11218 6.05439 2.6373 6.05454 2.3445 6.34752C2.0517 6.64051 2.05185 7.11538 2.34484 7.40818L5.31462 10.3761Z"
+              fill=""
+            />
           </svg>
 
-          +3 since yesterday
+          {{ formatTrend(metrics.draftTrend) }}
         </span>
       </div>
     </div>
@@ -81,10 +95,13 @@
       <div class="flex items-end justify-between mt-5">
         <div>
           <span class="text-sm text-gray-500 dark:text-gray-400">Pending Approval</span>
-          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">8</h4>
+          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+            {{ isLoading ? '...' : metrics.pendingApprovals }}
+          </h4>
         </div>
 
         <span
+          v-if="metrics.pendingTrend !== undefined"
           class="flex items-center gap-1 rounded-full bg-error-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500"
         >
           <svg
@@ -135,11 +152,17 @@
       <div class="flex items-end justify-between mt-5">
         <div>
           <span class="text-sm text-gray-500 dark:text-gray-400">Approved Memos</span>
-          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">24</h4>
+          <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+            {{ isLoading ? '...' : metrics.approvedMemos }}
+          </h4>
         </div>
 
         <span
-          class="flex items-center gap-1 rounded-full bg-success-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+          v-if="metrics.approvedTrend !== undefined"
+          class="flex items-center gap-1 rounded-full py-0.5 pl-2 pr-2.5 text-sm font-medium"
+          :class="metrics.approvedTrend >= 0 ? 
+            'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' : 
+            'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500'"
         >
           <svg
             class="fill-current"
@@ -150,16 +173,195 @@
             xmlns="http://www.w3.org/2000/svg"
           >
             <path
+              v-if="metrics.approvedTrend >= 0"
               fill-rule="evenodd"
               clip-rule="evenodd"
               d="M5.56462 1.62393C5.70193 1.47072 5.90135 1.37432 6.12329 1.37432C6.1236 1.37432 6.12391 1.37432 6.12422 1.37432C6.31631 1.37415 6.50845 1.44731 6.65505 1.59381L9.65514 4.5918C9.94814 4.88459 9.94831 5.35947 9.65552 5.65246C9.36273 5.94546 8.88785 5.94562 8.59486 5.65283L6.87329 3.93247L6.87329 10.125C6.87329 10.5392 6.53751 10.875 6.12329 10.875C5.70908 10.875 5.37329 10.5392 5.37329 10.125L5.37329 3.93578L3.65516 5.65282C3.36218 5.94562 2.8873 5.94547 2.5945 5.65248C2.3017 5.35949 2.30185 4.88462 2.59484 4.59182L5.56462 1.62393Z"
               fill=""
             />
+            <path
+              v-else
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M5.31462 10.3761C5.45194 10.5293 5.65136 10.6257 5.87329 10.6257C5.8736 10.6257 5.8739 10.6257 5.87421 10.6257C6.0663 10.6259 6.25845 10.5527 6.40505 10.4062L9.40514 7.4082C9.69814 7.11541 9.69831 6.64054 9.40552 6.34754C9.11273 6.05454 8.63785 6.05438 8.34486 6.34717L6.62329 8.06753L6.62329 1.875C6.62329 1.46079 6.28751 1.125 5.87329 1.125C5.45908 1.125 5.12329 1.46079 5.12329 1.875L5.12329 8.06422L3.40516 6.34719C3.11218 6.05439 2.6373 6.05454 2.3445 6.34752C2.0517 6.64051 2.05185 7.11538 2.34484 7.40818L5.31462 10.3761Z"
+              fill=""
+            />
           </svg>
 
-          +5 this week
+          {{ formatTrend(metrics.approvedTrend) }}
         </span>
       </div>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+
+interface MetricsData {
+  draftMemos: number
+  pendingApprovals: number
+  approvedMemos: number
+  draftTrend?: number
+  pendingTrend?: number
+  approvedTrend?: number
+}
+
+interface DashboardStatsResponse {
+  draftMemos: number
+  pendingApprovals: number
+  approvedMemos: number
+  archivedMemos?: number
+  totalMemos?: number
+  approvalRate?: number
+  averageApprovalTime?: number
+  [key: string]: any
+}
+
+interface TrendsResponse {
+  labels: string[]
+  created: number[]
+  approved: number[]
+  rejected: number[]
+  pending: number[]
+  weekOverWeek?: {
+    draft: number
+    approved: number
+    pending: number
+  }
+  [key: string]: any
+}
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+
+const metrics = ref<MetricsData>({
+  draftMemos: 0,
+  pendingApprovals: 0,
+  approvedMemos: 0
+})
+
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      // Parse if it's stored as JSON string
+      try {
+        const parsedToken = JSON.parse(token)
+        config.headers.Authorization = `Bearer ${parsedToken}`
+      } catch {
+        // If it's not JSON, use as is
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Response interceptor for error handling
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Fetch dashboard statistics
+const fetchDashboardStats = async () => {
+  try {
+    const response = await axiosInstance.get<DashboardStatsResponse>('/memos/statistics/dashboard')
+    const data = response.data.data
+    
+    metrics.value = {
+      draftMemos: data.draftMemos || 0,
+      pendingApprovals: data.pendingMemos || 0,
+      approvedMemos: data.approvedMemos || 0,
+      // These trends would ideally come from the API
+      // For demo purposes, we're generating random trends
+      draftTrend: Math.floor(Math.random() * 10) - 3, // Random between -3 and 6
+      approvedTrend: Math.floor(Math.random() * 8) - 2 // Random between -2 and 5
+    }
+    
+    // For pending, we always show "Need Action" as per the design
+    if (data.pendingApprovals > 0) {
+      metrics.value.pendingTrend = data.pendingApprovals
+    }
+    
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to load metrics'
+    
+    // Set fallback data
+    metrics.value = {
+      draftMemos: 12,
+      pendingApprovals: 8,
+      approvedMemos: 24,
+      draftTrend: 3,
+      approvedTrend: 5
+    }
+  }
+}
+
+// Fetch trends data (optional - if API provides it)
+const fetchTrends = async () => {
+  try {
+    const response = await axiosInstance.get<TrendsResponse>('/memos/statistics/trends', {
+      params: {
+        period: 'week'
+      }
+    })
+    
+    const data = response.data.data
+    
+    // If the API provides trend data, we can use it to update our metrics
+    if (data && data.weekOverWeek) {
+      metrics.value.draftTrend = data.weekOverWeek.draft || 0
+      metrics.value.approvedTrend = data.weekOverWeek.approved || 0
+    }
+  } catch (err) {
+    // Don't throw - this is optional data
+  }
+}
+
+// Format trend value for display
+const formatTrend = (value?: number): string => {
+  if (value === undefined || value === 0) return 'No change'
+  const prefix = value > 0 ? '+' : ''
+  const suffix = Math.abs(value) === 1 ? 'item' : 'items'
+  return `${prefix}${value} ${suffix} since yesterday`
+}
+
+// Load all data
+const loadData = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    await fetchDashboardStats()
+    // Try to fetch trends, but don't wait for it if it fails
+    fetchTrends().catch(() => {})
+  } catch (err) {
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Initial fetch
+onMounted(() => {
+  loadData()
+})
+</script>

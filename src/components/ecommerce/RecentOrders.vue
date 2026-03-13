@@ -9,6 +9,7 @@
 
       <div class="flex items-center gap-3">
         <button
+          @click="toggleFilter"
           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
         >
           <svg
@@ -51,6 +52,7 @@
         </button>
 
         <button
+          @click="viewAllMemos"
           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
         >
           View all
@@ -58,7 +60,31 @@
       </div>
     </div>
 
-    <div class="max-w-full overflow-x-auto custom-scrollbar">
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex justify-center items-center py-8">
+      <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-blue-600" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-8">
+      <p class="text-error-600 dark:text-error-500">{{ error }}</p>
+      <button 
+        @click="fetchRecentMemos" 
+        class="mt-2 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+      >
+        Retry
+      </button>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else-if="recentMemos.length === 0" class="text-center py-8">
+      <p class="text-gray-500 dark:text-gray-400">No recent memos found</p>
+    </div>
+
+    <!-- Table -->
+    <div v-else class="max-w-full overflow-x-auto custom-scrollbar">
       <table class="min-w-full">
         <thead>
           <tr class="border-t border-gray-100 dark:border-gray-800">
@@ -66,7 +92,7 @@
               <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Memo Title</p>
             </th>
             <th class="py-3 text-left">
-              <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Branch</p>
+              <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Reference</p>
             </th>
             <th class="py-3 text-left">
               <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Date</p>
@@ -79,8 +105,9 @@
         <tbody>
           <tr
             v-for="(memo, index) in recentMemos"
-            :key="index"
-            class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            :key="memo.id || index"
+            class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+            @click="viewMemoDetail(memo.id)"
           >
             <td class="py-3 whitespace-nowrap">
               <div class="flex items-center gap-3">
@@ -96,33 +123,20 @@
                   <p class="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                     {{ memo.title }}
                   </p>
-                  <span class="text-gray-500 text-theme-xs dark:text-gray-400"
-                    >Ref: {{ memo.reference }}</span
-                  >
                 </div>
               </div>
             </td>
             <td class="py-3 whitespace-nowrap">
-              <p class="text-gray-500 text-theme-sm dark:text-gray-400">{{ memo.branch }}</p>
+              <p class="text-gray-500 text-theme-sm dark:text-gray-400">{{ memo.reference || 'N/A' }}</p>
             </td>
             <td class="py-3 whitespace-nowrap">
-              <p class="text-gray-500 text-theme-sm dark:text-gray-400">{{ memo.date }}</p>
+              <p class="text-gray-500 text-theme-sm dark:text-gray-400">{{ formatDate(memo.createdAt) }}</p>
             </td>
             <td class="py-3 whitespace-nowrap">
               <span
-                :class="{
-                  'rounded-full px-2.5 py-1 text-theme-xs font-medium': true,
-                  'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500':
-                    memo.status === 'Approved',
-                  'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-orange-400':
-                    memo.status === 'Pending',
-                  'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500':
-                    memo.status === 'Draft',
-                  'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400':
-                    memo.status === 'In Review',
-                }"
+                :class="getStatusClass(memo.status)"
               >
-                {{ memo.status }}
+                {{ formatStatus(memo.status) }}
               </span>
             </td>
           </tr>
@@ -132,51 +146,227 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
 
-const recentMemos = ref([
-  {
-    title: 'Q4 Budget Approval',
-    reference: 'MEM-2024-001',
-    branch: 'Head Office',
-    date: '2024-03-15',
-    status: 'Approved',
+interface Memo {
+  id: string
+  title: string
+  content?: string
+  status?: string
+  priority?: string
+  branch?: string
+  authorId: string
+  createdAt: string
+  updatedAt?: string
+  reference: string
+  tenantId?: string
+  metadata?: any
+}
+
+interface ApiResponse {
+  data: Memo[][]
+  message?: string
+  statusCode?: number
+}
+
+const router = useRouter()
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const recentMemos = ref<Memo[]>([])
+
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const parsedToken = JSON.parse(token)
+        config.headers.Authorization = `Bearer ${parsedToken}`
+      } catch {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
   },
-  {
-    title: 'Staff Leave Policy Update',
-    reference: 'MEM-2024-002',
-    branch: 'Abuja',
-    date: '2024-03-14',
-    status: 'Pending',
-  },
-  {
-    title: 'IT Infrastructure Upgrade',
-    reference: 'MEM-2024-003',
-    branch: 'Ikeja',
-    date: '2024-03-14',
-    status: 'In Review',
-  },
-  {
-    title: 'Annual General Meeting',
-    reference: 'MEM-2024-004',
-    branch: 'Head Office',
-    date: '2024-03-13',
-    status: 'Approved',
-  },
-  {
-    title: 'Health & Safety Compliance',
-    reference: 'MEM-2024-005',
-    branch: 'Ikeja',
-    date: '2024-03-12',
-    status: 'Draft',
-  },
-  {
-    title: 'New Hire Onboarding Process',
-    reference: 'MEM-2024-006',
-    branch: 'Abuja',
-    date: '2024-03-11',
-    status: 'Approved',
-  },
-])
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Format date for display
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return 'N/A'
+  
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\//g, '-')
+}
+
+// Format status for display
+const formatStatus = (status?: string): string => {
+  if (!status) return 'Unknown'
+  
+  const statusMap: Record<string, string> = {
+    'draft': 'Draft',
+    'pending': 'Pending',
+    'approved': 'Approved',
+    'rejected': 'Rejected',
+    'archived': 'Archived',
+    'in_review': 'In Review'
+  }
+  return statusMap[status.toLowerCase()] || status
+}
+
+// Get status CSS class
+const getStatusClass = (status?: string): string => {
+  const baseClass = 'rounded-full px-2.5 py-1 text-theme-xs font-medium'
+  
+  if (!status) return `${baseClass} bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400`
+  
+  const statusClasses: Record<string, string> = {
+    'draft': 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500',
+    'pending': 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-orange-400',
+    'approved': 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500',
+    'rejected': 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500',
+    'archived': 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400',
+    'in_review': 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400'
+  }
+  
+  const statusKey = status.toLowerCase()
+  return `${baseClass} ${statusClasses[statusKey] || statusClasses.draft}`
+}
+
+// Fetch recent memos
+const fetchRecentMemos = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    // Based on your response structure, the endpoint returns data.data[0] as the array of memos
+    const response = await axiosInstance.get<ApiResponse>('/memos/me', {
+      params: {
+        limit: 10,
+        sortBy: 'createdAt',
+        sortOrder: 'DESC'
+      }
+    })
+    
+    console.log('Recent Memos Response:', response.data)
+    
+    // Extract the memos array from response.data.data[0]
+    // Based on your response: data.data[0] contains the array of memos
+    if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      recentMemos.value = response.data.data[0] || []
+    } else {
+      recentMemos.value = []
+    }
+    
+  } catch (err) {
+    console.error('Error fetching recent memos:', err)
+    error.value = 'Failed to load recent memos'
+    
+    // Set fallback data for development/demo using the actual data structure you provided
+    if (import.meta.env.DEV) {
+      recentMemos.value = [
+        {
+          id: '295ab8a5-1183-4409-85a7-51ecc16e51fc',
+          reference: 'MEM-2026-008',
+          title: 'Approval for the purchase of computer accessories',
+          content: '<p style="line-height: 1.5;"><strong>DATE: JULY 31…yle="line-height: 1.5;">Managing Director/CEO</p>',
+          authorId: 'cb164466-d55d-4c13-aba7-0efda893f268',
+          createdAt: new Date().toISOString(),
+          status: 'pending'
+        },
+        {
+          id: 'cdecb001-ff48-4d58-b516-e110b5c522b5',
+          reference: 'MEM-2026-007',
+          title: 'Approval for the purchase of computer',
+          content: '<p style="line-height: 1.5;"><strong>DATE: JULY 31…yle="line-height: 1.5;">Managing Director/CEO</p>',
+          authorId: 'cb164466-d55d-4c13-aba7-0efda893f268',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          status: 'approved'
+        },
+        {
+          id: '93f332f7-941e-48d9-8d2f-2873ce5caa82',
+          reference: 'MEM-2026-006',
+          title: 'APPROVAL FOR THE PURCHASE OF COMPUTER ACCESSORIES',
+          content: '<p style="line-height: 1.5;"><strong>DATE: JULY 31…yle="line-height: 1.5;">Managing Director/CEO</p>',
+          authorId: 'cb164466-d55d-4c13-aba7-0efda893f268',
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          status: 'draft'
+        }
+      ]
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Handle filter button click
+const toggleFilter = () => {
+  // Implement filter logic or emit event to parent
+  console.log('Filter clicked')
+  // You could emit an event or open a filter modal
+}
+
+// Handle view all button click
+const viewAllMemos = () => {
+  // Navigate to memos list page
+  router.push('/memo-list')
+}
+
+// Handle memo row click
+const viewMemoDetail = (memoId: string) => {
+  if (memoId) {
+    router.push(`/memo/${memoId}`)
+  }
+}
+
+// Initial fetch
+onMounted(() => {
+  fetchRecentMemos()
+})
 </script>
+
+<style scoped>
+.spinner-border {
+  border-top-color: transparent;
+  border-right-color: currentColor;
+  border-bottom-color: currentColor;
+  border-left-color: currentColor;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>

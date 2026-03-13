@@ -16,11 +16,11 @@
             class="inline-flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900"
           >
             <button
-              v-for="option in options"
+              v-for="option in periodOptions"
               :key="option.value"
-              @click="selected = option.value"
+              @click="selectedPeriod = option.value"
               :class="[
-                selected === option.value
+                selectedPeriod === option.value
                   ? 'shadow-theme-xs text-gray-900 dark:text-white bg-white dark:bg-gray-800'
                   : 'text-gray-500 dark:text-gray-400',
                 'px-3 py-2 font-medium rounded-md text-theme-sm hover:text-gray-900 hover:shadow-theme-xs dark:hover:bg-gray-800 dark:hover:text-white',
@@ -33,10 +33,10 @@
 
         <div class="relative">
           <flat-pickr
-            v-model="date"
+            v-model="dateRange"
             :config="flatpickrConfig"
             class="pl-3 sm:pl-9 dark:bg-dark-900 h-10 w-10 sm:w-40 rounded-lg border border-gray-200 bg-white text-transparent sm:text-theme-sm sm:text-gray-800 shadow-theme-xs placeholder:text-transparent sm:placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/[0.03] dark:text-transparent sm:dark:text-gray-400 dark:placeholder:text-transparent sm:dark:placeholder:text-gray-400 dark:focus:border-brand-800"
-            placeholder="Select Date"
+            placeholder="Select Date Range"
           />
           <span
             class="absolute text-gray-500 -translate-y-1/2 pointer-events-none left-1/2 -translate-x-1/2 sm:left-3 sm:translate-x-0 top-1/2 dark:text-gray-400"
@@ -60,106 +60,243 @@
         </div>
       </div>
     </div>
-    <div class="max-w-full overflow-x-auto custom-scrollbar">
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex justify-center items-center py-12">
+      <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-blue-600" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-8">
+      <p class="text-error-600 dark:text-error-500">{{ error }}</p>
+      <button 
+        @click="fetchMemos" 
+        class="mt-2 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+      >
+        Retry
+      </button>
+    </div>
+
+    <!-- Chart -->
+    <div v-else class="max-w-full overflow-x-auto custom-scrollbar">
       <div id="chartThree" class="-ml-4 min-w-[1000px] xl:min-w-full pl-2">
-        <VueApexCharts type="area" height="310" :options="chartOptions" :series="series" />
+        <VueApexCharts type="area" height="310" :options="chartOptions" :series="chartSeries" />
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, watch } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue'
+import axios from 'axios'
 import flatPickr from 'vue-flatpickr-component'
-
-const options = [
-  { value: 'optionOne', label: 'Monthly' },
-  { value: 'optionTwo', label: 'Quarterly' },
-  { value: 'optionThree', label: 'Annually' },
-]
-
-const selected = ref('optionOne')
-const date = ref('')
-
-const flatpickrConfig = {
-  mode: 'range',
-  dateFormat: 'M j',
-  defaultDate: [new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()],
-}
+import type { BaseOptions } from 'flatpickr/dist/types/options'
 import VueApexCharts from 'vue3-apexcharts'
 
-// Watch for changes in selected period to update data (simulated)
-watch(selected, (newValue) => {
-  // In a real app, you would fetch new data based on the selected period
-  console.log('Period changed to:', newValue)
-  // Simulate data update based on period
-  if (newValue === 'optionOne') {
-    // Monthly data
-    series.value = [
-      {
-        name: 'Memos Created',
-        data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
-      },
-      {
-        name: 'Memos Approved',
-        data: [140, 150, 130, 120, 145, 135, 150, 185, 200, 180, 210, 195],
-      },
-    ]
-  } else if (newValue === 'optionTwo') {
-    // Quarterly data
-    series.value = [
-      {
-        name: 'Memos Created',
-        data: [520, 500, 560, 685],
-      },
-      {
-        name: 'Memos Approved',
-        data: [420, 400, 460, 585],
-      },
-    ]
-    // Update x-axis categories for quarterly
-    chartOptions.value = {
-      ...chartOptions.value,
-      xaxis: {
-        ...chartOptions.value.xaxis,
-        categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-      }
+interface Memo {
+  id: string
+  title: string
+  content?: string
+  status?: string
+  priority?: string
+  authorId: string
+  createdAt: string
+  updatedAt?: string
+  reference: string
+}
+
+interface ApiResponse {
+  data: Memo[][]
+  message?: string
+  statusCode?: number
+}
+
+interface ChartData {
+  categories: string[]
+  created: number[]
+  approved: number[]
+}
+
+type PeriodType = 'monthly' | 'quarterly' | 'annually'
+
+interface PeriodOption {
+  value: PeriodType
+  label: string
+}
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+
+// State
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const allMemos = ref<Memo[]>([])
+const selectedPeriod = ref<PeriodType>('monthly')
+const dateRange = ref('')
+
+// Period options - typed as PeriodOption[]
+const periodOptions: PeriodOption[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'annually', label: 'Annually' },
+]
+
+// Flatpickr configuration with proper typing
+const flatpickrConfig: Partial<BaseOptions> = {
+  mode: 'range',
+  dateFormat: 'M j, Y',
+  defaultDate: [
+    new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1),
+    new Date()
+  ],
+  onChange: (selectedDates: Date[]) => {
+    if (selectedDates.length === 2) {
+      filterMemosByDateRange(selectedDates[0], selectedDates[1])
     }
-  } else {
-    // Annual data
-    series.value = [
-      {
-        name: 'Memos Created',
-        data: [2265, 2450, 2680, 2920],
-      },
-      {
-        name: 'Memos Approved',
-        data: [1865, 2050, 2280, 2520],
-      },
-    ]
-    // Update x-axis categories for annual
-    chartOptions.value = {
-      ...chartOptions.value,
-      xaxis: {
-        ...chartOptions.value.xaxis,
-        categories: ['2023', '2024', '2025', '2026'],
-      }
-    }
+  }
+}
+
+// Create axios instance with auth interceptor
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
   }
 })
 
-const series = ref([
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const parsedToken = JSON.parse(token)
+        config.headers.Authorization = `Bearer ${parsedToken}`
+      } catch {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Filter memos by date range
+const filterMemosByDateRange = (startDate: Date, endDate: Date) => {
+  // This will be used to filter the displayed data
+  console.log('Date range selected:', startDate, endDate)
+  // In a real app, you might want to refetch data with date parameters
+  // or filter the existing data client-side
+}
+
+// Group memos by month
+const groupMemosByMonth = (memos: Memo[]): ChartData => {
+  const categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const created = new Array(12).fill(0)
+  const approved = new Array(12).fill(0)
+  
+  memos.forEach(memo => {
+    const date = new Date(memo.createdAt)
+    const month = date.getMonth()
+    
+    created[month]++
+    
+    if (memo.status?.toLowerCase() === 'approved') {
+      approved[month]++
+    }
+  })
+  
+  return { categories, created, approved }
+}
+
+// Group memos by quarter
+const groupMemosByQuarter = (memos: Memo[]): ChartData => {
+  const categories = ['Q1', 'Q2', 'Q3', 'Q4']
+  const created = new Array(4).fill(0)
+  const approved = new Array(4).fill(0)
+  
+  memos.forEach(memo => {
+    const date = new Date(memo.createdAt)
+    const quarter = Math.floor(date.getMonth() / 3)
+    
+    created[quarter]++
+    
+    if (memo.status?.toLowerCase() === 'approved') {
+      approved[quarter]++
+    }
+  })
+  
+  return { categories, created, approved }
+}
+
+// Group memos by year
+const groupMemosByYear = (memos: Memo[]): ChartData => {
+  const yearMap = new Map<number, { created: number; approved: number }>()
+  
+  memos.forEach(memo => {
+    const date = new Date(memo.createdAt)
+    const year = date.getFullYear()
+    
+    if (!yearMap.has(year)) {
+      yearMap.set(year, { created: 0, approved: 0 })
+    }
+    
+    const stats = yearMap.get(year)!
+    stats.created++
+    
+    if (memo.status?.toLowerCase() === 'approved') {
+      stats.approved++
+    }
+  })
+  
+  // Sort years in ascending order
+  const sortedYears = Array.from(yearMap.entries()).sort((a, b) => a[0] - b[0])
+  
+  return {
+    categories: sortedYears.map(([year]) => year.toString()),
+    created: sortedYears.map(([_, stats]) => stats.created),
+    approved: sortedYears.map(([_, stats]) => stats.approved)
+  }
+}
+
+// Compute chart data based on selected period
+const chartData = computed<ChartData>(() => {
+  if (allMemos.value.length === 0) {
+    return {
+      categories: [],
+      created: [],
+      approved: []
+    }
+  }
+
+  switch (selectedPeriod.value) {
+    case 'monthly':
+      return groupMemosByMonth(allMemos.value)
+    case 'quarterly':
+      return groupMemosByQuarter(allMemos.value)
+    case 'annually':
+      return groupMemosByYear(allMemos.value)
+    default:
+      return groupMemosByMonth(allMemos.value)
+  }
+})
+
+// Format series for ApexCharts
+const chartSeries = computed(() => [
   {
     name: 'Memos Created',
-    data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
+    data: chartData.value.created,
   },
   {
     name: 'Memos Approved',
-    data: [140, 150, 130, 120, 145, 135, 150, 185, 200, 180, 210, 195],
+    data: chartData.value.approved,
   },
 ])
 
-const chartOptions = ref({
+// Update chart options based on selected period
+const chartOptions = computed(() => ({
   legend: {
     show: true,
     position: 'top',
@@ -218,30 +355,18 @@ const chartOptions = ref({
   },
   tooltip: {
     x: {
-      format: 'dd MMM yyyy',
+      format: selectedPeriod.value === 'monthly' ? 'MMM' : 
+              selectedPeriod.value === 'quarterly' ? 'q' : 'yyyy',
     },
     y: {
-      formatter: function (val) {
+      formatter: function (val: number) {
         return val + ' memos'
       },
     },
   },
   xaxis: {
     type: 'category',
-    categories: [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ],
+    categories: chartData.value.categories,
     axisBorder: {
       show: false,
     },
@@ -262,10 +387,113 @@ const chartOptions = ref({
       },
     },
   },
+}))
+
+// Fetch memos from /memos/me endpoint
+const fetchMemos = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    const response = await axiosInstance.get<ApiResponse>('/memos/me', {
+      params: {
+        limit: 10000, // Get enough data for statistics
+        sortBy: 'createdAt',
+        sortOrder: 'DESC'
+      }
+    })
+    
+    console.log('Memos Response for Statistics:', response.data)
+    
+    // Extract memos from response.data.data[0] based on your API structure
+    if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      allMemos.value = response.data.data[0] || []
+    } else {
+      allMemos.value = []
+    }
+    
+  } catch (err) {
+    console.error('Error fetching memos for statistics:', err)
+    error.value = 'Failed to load memo statistics'
+    
+    // Set fallback data for development
+    if (import.meta.env.DEV) {
+      allMemos.value = generateFallbackMemos()
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Generate fallback memos for development
+const generateFallbackMemos = (): Memo[] => {
+  const memos: Memo[] = []
+  const currentYear = new Date().getFullYear()
+  const startYear = currentYear - 3
+  
+  // Generate memos for the last 4 years
+  for (let year = startYear; year <= currentYear; year++) {
+    for (let month = 0; month < 12; month++) {
+      // Random number of memos between 100 and 400
+      const memoCount = Math.floor(Math.random() * 300) + 100
+      
+      for (let i = 0; i < memoCount; i++) {
+        const date = new Date(year, month, Math.floor(Math.random() * 28) + 1)
+        const isApproved = Math.random() > 0.2 // 80% approval rate
+        
+        memos.push({
+          id: `memo-${year}-${month}-${i}`,
+          title: `Sample Memo ${year}-${month + 1}-${i}`,
+          status: isApproved ? 'approved' : (Math.random() > 0.5 ? 'pending' : 'draft'),
+          authorId: 'user-1',
+          createdAt: date.toISOString(),
+          reference: `MEM-${year}-${String(month + 1).padStart(2, '0')}${String(i).padStart(3, '0')}`,
+          content: 'Sample content'
+        })
+      }
+    }
+  }
+  
+  return memos
+}
+
+// Watch for period changes
+watch(selectedPeriod, () => {
+  // Chart will update automatically via computed properties
+  console.log('Period changed to:', selectedPeriod.value)
+})
+
+// Initial fetch
+onMounted(() => {
+  fetchMemos()
 })
 </script>
 
 <style scoped>
+.spinner-border {
+  border-top-color: transparent;
+  border-right-color: currentColor;
+  border-bottom-color: currentColor;
+  border-left-color: currentColor;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .area-chart {
   width: 100%;
 }

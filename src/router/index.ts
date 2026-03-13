@@ -55,14 +55,6 @@ const router = createRouter({
       },
     },
     {
-      path: '/template-management',
-      name: 'Template-Management',
-      component: () => import('../views/User/TemplatesManagement.vue'),
-      meta: {
-        title: 'Template Management',
-      }
-    },
-    {
       path: '/document-collaboration',
       name: 'Document-Collaboration',
       component: () => import('../views/User/DocumentCollaboration.vue'),

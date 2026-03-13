@@ -33,23 +33,49 @@
           </DropdownMenu>
         </div>
       </div>
-      <div class="relative max-h-[195px]">
-        <div id="chartTwo" class="h-full">
-          <div class="radial-bar-chart">
-            <VueApexCharts type="radialBar" height="330" :options="chartOptions" :series="series" />
-          </div>
+      
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex justify-center items-center py-12">
+        <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-blue-600" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
-        <span
-          class="absolute left-1/2 top-[85%] -translate-x-1/2 -translate-y-[85%] rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
-          >+10%</span
-        >
       </div>
-      <p class="mx-auto mt-1.5 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-        You've completed 38 memos today, exceeding your daily target. Keep up the great work!
-      </p>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="text-center py-8">
+        <p class="text-error-600 dark:text-error-500">{{ error }}</p>
+        <button 
+          @click="fetchMemos" 
+          class="mt-2 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+        >
+          Retry
+        </button>
+      </div>
+
+      <!-- Chart and Stats -->
+      <template v-else>
+        <div class="relative max-h-[195px]">
+          <div id="chartTwo" class="h-full">
+            <div class="radial-bar-chart">
+              <VueApexCharts type="radialBar" height="330" :options="chartOptions" :series="series" />
+            </div>
+          </div>
+          <span
+            v-if="trendPercentage !== 0"
+            class="absolute left-1/2 top-[85%] -translate-x-1/2 -translate-y-[85%] rounded-full px-3 py-1 text-xs font-medium"
+            :class="trendPercentage > 0 ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' : 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500'"
+          >
+            {{ trendPercentage > 0 ? '+' : '' }}{{ trendPercentage }}%
+          </span>
+        </div>
+        <p class="mx-auto mt-1.5 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
+          {{ motivationalMessage }}
+        </p>
+      </template>
     </div>
 
     <div class="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
+      <!-- Monthly Target -->
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
           Monthly Target
@@ -57,7 +83,7 @@
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          250 Memos
+          {{ formatNumber(monthlyTarget) }} Memos
           <svg
             width="16"
             height="16"
@@ -73,11 +99,12 @@
             />
           </svg>
         </p>
-        <p class="text-xs text-center text-gray-400">85% achieved</p>
+        <p class="text-xs text-center text-gray-400">{{ monthlyCompletionPercentage }}% achieved</p>
       </div>
 
       <div class="w-px bg-gray-200 h-12 dark:bg-gray-800"></div>
 
+      <!-- Completed -->
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
           Completed
@@ -85,7 +112,7 @@
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          212 Memos
+          {{ formatNumber(monthlyCompleted) }} Memos
           <svg
             width="16"
             height="16"
@@ -101,11 +128,12 @@
             />
           </svg>
         </p>
-        <p class="text-xs text-center text-gray-400">+24 vs last month</p>
+        <p class="text-xs text-center text-gray-400">{{ monthlyVsLastMonth > 0 ? '+' : '' }}{{ formatNumber(monthlyVsLastMonth) }} vs last month</p>
       </div>
 
       <div class="w-px bg-gray-200 h-12 dark:bg-gray-800"></div>
 
+      <!-- Today -->
       <div>
         <p class="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
           Today
@@ -113,7 +141,7 @@
         <p
           class="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg"
         >
-          38 Memos
+          {{ formatNumber(todayCompleted) }} Memos
           <svg
             width="16"
             height="16"
@@ -129,31 +157,243 @@
             />
           </svg>
         </p>
-        <p class="text-xs text-center text-gray-400">Daily goal: 30</p>
+        <p class="text-xs text-center text-gray-400">Daily goal: {{ formatNumber(dailyGoal) }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import axios from 'axios'
 import DropdownMenu from '../common/DropdownMenu.vue'
-
-const menuItems = [
-  { label: 'View Details', onClick: () => console.log('View Details clicked') },
-  { label: 'Set New Target', onClick: () => console.log('Set New Target clicked') },
-]
-
 import VueApexCharts from 'vue3-apexcharts'
 
-const props = defineProps({
-  value: {
-    type: Number,
-    default: 85,
-  },
+interface Memo {
+  id: string
+  title: string
+  content?: string
+  status?: string
+  priority?: string
+  authorId: string
+  createdAt: string
+  updatedAt?: string
+  reference: string
+}
+
+interface ApiResponse {
+  data: Memo[][]
+  message?: string
+  statusCode?: number
+}
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
+
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+
+// Store all memos
+const allMemos = ref<Memo[]>([])
+
+// Computed statistics from memos
+const totalMemos = computed(() => allMemos.value.length)
+
+const approvedMemos = computed(() => 
+  allMemos.value.filter(memo => memo.status?.toLowerCase() === 'approved').length
+)
+
+const pendingMemos = computed(() => 
+  allMemos.value.filter(memo => memo.status?.toLowerCase() === 'pending').length
+)
+
+const draftMemos = computed(() => 
+  allMemos.value.filter(memo => memo.status?.toLowerCase() === 'draft').length
+)
+
+// Monthly statistics
+const monthlyCompleted = computed(() => {
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+  
+  return allMemos.value.filter(memo => {
+    const memoDate = new Date(memo.createdAt)
+    return memoDate.getMonth() === currentMonth && 
+           memoDate.getFullYear() === currentYear &&
+           memo.status?.toLowerCase() === 'approved'
+  }).length
 })
 
-const series = computed(() => [props.value])
+// Today's completed memos
+const todayCompleted = computed(() => {
+  const now = new Date()
+  const today = now.toDateString()
+  
+  return allMemos.value.filter(memo => {
+    const memoDate = new Date(memo.createdAt)
+    return memoDate.toDateString() === today && 
+           memo.status?.toLowerCase() === 'approved'
+  }).length
+})
+
+// Last month's completed memos for comparison
+const lastMonthCompleted = computed(() => {
+  const now = new Date()
+  const lastMonth = now.getMonth() - 1
+  const year = lastMonth < 0 ? now.getFullYear() - 1 : now.getFullYear()
+  const month = lastMonth < 0 ? 11 : lastMonth
+  
+  return allMemos.value.filter(memo => {
+    const memoDate = new Date(memo.createdAt)
+    return memoDate.getMonth() === month && 
+           memoDate.getFullYear() === year &&
+           memo.status?.toLowerCase() === 'approved'
+  }).length
+})
+
+// Monthly target (could be configurable, using 250 as default)
+const monthlyTarget = ref(250)
+
+// Daily goal (could be configurable, using 30 as default)
+const dailyGoal = ref(30)
+
+// Comparison with last month
+const monthlyVsLastMonth = computed(() => 
+  monthlyCompleted.value - lastMonthCompleted.value
+)
+
+// Completion percentage
+const monthlyCompletionPercentage = computed(() => 
+  Math.min(Math.round((monthlyCompleted.value / monthlyTarget.value) * 100), 100)
+)
+
+// Trend percentage (simplified calculation)
+const trendPercentage = computed(() => {
+  if (lastMonthCompleted.value === 0) return monthlyCompleted.value > 0 ? 100 : 0
+  return Math.round(((monthlyCompleted.value - lastMonthCompleted.value) / lastMonthCompleted.value) * 100)
+})
+
+const series = computed(() => [monthlyCompletionPercentage.value])
+
+const motivationalMessage = computed(() => {
+  if (todayCompleted.value > dailyGoal.value) {
+    return `You've completed ${todayCompleted.value} memos today, exceeding your daily target. Keep up the great work!`
+  } else if (todayCompleted.value === dailyGoal.value) {
+    return `You've hit your daily target of ${dailyGoal.value} memos. Well done!`
+  } else {
+    return `You've completed ${todayCompleted.value} out of ${dailyGoal.value} daily memos. You've got this!`
+  }
+})
+
+const menuItems = [
+  { 
+    label: 'View Details', 
+    onClick: () => {
+      console.log('View Details clicked')
+    } 
+  },
+  { 
+    label: 'Set New Target', 
+    onClick: () => {
+      // You could open a modal to set new targets
+      console.log('Set New Target clicked')
+    } 
+  },
+]
+
+// Create axios instance with auth interceptor
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const parsedToken = JSON.parse(token)
+        config.headers.Authorization = `Bearer ${parsedToken}`
+      } catch {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Format number with commas
+const formatNumber = (num: number): string => {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+// Fetch memos from /memos/me endpoint
+const fetchMemos = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    const response = await axiosInstance.get<ApiResponse>('/memos/me', {
+      params: {
+        limit: 1000, // Get a large number to calculate stats accurately
+        sortBy: 'createdAt',
+        sortOrder: 'DESC'
+      }
+    })
+    
+    console.log('Memos Response:', response.data)
+    
+    // Extract memos from response.data.data[0] based on your API structure
+    if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+      allMemos.value = response.data.data[0] || []
+    } else {
+      allMemos.value = []
+    }
+    
+    // You could also fetch target settings from a config endpoint if available
+    // For now, we'll keep the default values
+    
+  } catch (err) {
+    console.error('Error fetching memos:', err)
+    error.value = 'Failed to load memo statistics'
+    
+    // Set fallback data for development
+    if (import.meta.env.DEV) {
+      allMemos.value = generateFallbackMemos()
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Generate fallback memos for development
+const generateFallbackMemos = (): Memo[] => {
+  const memos: Memo[] = []
+  const now = new Date()
+  
+  // Generate some memos for this month
+  for (let i = 0; i < 212; i++) {
+    const date = new Date(now)
+    date.setDate(now.getDate() - Math.floor(Math.random() * 30))
+    
+    memos.push({
+      id: `memo-${i}`,
+      title: `Sample Memo ${i}`,
+      status: i < 180 ? 'approved' : (i < 200 ? 'pending' : 'draft'),
+      authorId: 'user-1',
+      createdAt: date.toISOString(),
+      reference: `MEM-2024-${String(i).padStart(3, '0')}`,
+      content: 'Sample content'
+    })
+  }
+  
+  return memos
+}
 
 const chartOptions = {
   colors: ['#465FFF'],
@@ -200,9 +440,37 @@ const chartOptions = {
   },
   labels: ['Progress'],
 }
+
+onMounted(() => {
+  fetchMemos()
+})
 </script>
 
 <style scoped>
+.spinner-border {
+  border-top-color: transparent;
+  border-right-color: currentColor;
+  border-bottom-color: currentColor;
+  border-left-color: currentColor;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .radial-bar-chart {
   width: 100%;
   max-width: 330px;

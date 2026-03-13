@@ -13,8 +13,8 @@
       <svg class="w-16 h-16 mx-auto text-error-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
-      <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">Error Loading Memo</h3>
-      <p class="mt-2 text-gray-500 dark:text-gray-400">{{ error }}</p>
+      <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">Kindly Select A Memo You Want To View</h3>
+      <p class="mt-2 text-gray-500 dark:text-gray-400">Click the button below to select a memo</p>
       <button @click="goBack" class="px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
         Go Back
       </button>
@@ -479,7 +479,7 @@ const goToDashboard = () => {
 }
 
 const goBack = () => {
-  router.push('/memos')
+  router.push('/memo-list')
 }
 
 const editMemo = () => {
