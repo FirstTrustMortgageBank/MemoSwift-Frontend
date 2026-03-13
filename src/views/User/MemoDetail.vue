@@ -72,6 +72,19 @@
             Reject
           </button>
           
+          <!-- Send to Next Approver button - appears for author after an approver has approved -->
+          <button 
+            v-if="canSendToNextApprover"
+            @click="openApproverModal" 
+            class="action-btn primary"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Send to Next Approver
+          </button>
+          
           <button 
             v-if="memo.status === 'DRAFT' && memo.authorId === currentUserId"
             @click="editMemo" 
@@ -96,6 +109,59 @@
             </svg>
             Export PDF
           </button>
+        </div>
+      </div>
+
+      <!-- Approval History Timeline -->
+      <div v-if="approvalHistory.length > 0" class="approval-history">
+        <div class="history-header">
+          <h4>Approval History</h4>
+          <button @click="showHistory = !showHistory" class="history-toggle">
+            {{ showHistory ? 'Hide' : 'Show' }}
+          </button>
+        </div>
+        <div v-if="showHistory" class="history-timeline">
+          <div 
+            v-for="(item, index) in approvalHistory" 
+            :key="item.id"
+            class="history-item"
+            :class="{ 'is-last': index === approvalHistory.length - 1 }"
+          >
+            <div class="history-icon" :class="item.action.toLowerCase()">
+              <svg v-if="item.action === 'SENT_FOR_APPROVAL'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+              <svg v-else-if="item.action === 'APPROVED'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <svg v-else-if="item.action === 'REJECTED'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v8M8 12h8"/>
+              </svg>
+            </div>
+            <div class="history-content">
+              <div class="history-title">
+                <strong>{{ item.actorName || item.user?.name || 'Unknown' }}</strong>
+                <span class="history-action">{{ item.action }}</span>
+                <span class="history-time">{{ formatDateTime(item.createdAt) }}</span>
+              </div>
+              <div v-if="item.comment" class="history-comment">
+                "{{ item.comment }}"
+              </div>
+              <div v-if="item.action === 'SENT_FOR_APPROVAL' && item.targetApproverName" class="history-details">
+                Sent to: {{ item.targetApproverName }}
+              </div>
+              <div v-else-if="item.action === 'APPROVED'" class="history-details">
+                Approved by: {{ item.actorName || item.userName || item.user?.name }}
+              </div>
+              <div v-else-if="item.action === 'REJECTED'" class="history-details">
+                Rejected by: {{ item.rejectorName || item.userName || item.user?.name }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -284,6 +350,96 @@
       </div>
     </div>
 
+    <!-- Approver Selection Modal -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="transform opacity-0 scale-95"
+      enter-to-class="transform opacity-100 scale-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="transform opacity-100 scale-100"
+      leave-to-class="transform opacity-0 scale-95"
+    >
+      <div v-if="showApproverModal" class="modal-overlay" @click.self="closeApproverModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Send to Next Approver</h3>
+            <button @click="closeApproverModal" class="close-btn">✕</button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Select Next Approver</label>
+              <select v-model="selectedApprover" class="approver-select" :disabled="isLoadingApprovers">
+                <option value="" disabled>Choose next approver...</option>
+                <option v-for="approver in approversList" :key="approver.id" :value="approver.id">
+                  {{ approver.name }} - {{ approver.role }} ({{ approver.department }})
+                </option>
+              </select>
+              <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
+              <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">
+                No approvers available
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Priority Level</label>
+              <div class="priority-options">
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="LOW">
+                  <span class="priority-badge low">Low</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="MEDIUM">
+                  <span class="priority-badge medium">Medium</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="HIGH">
+                  <span class="priority-badge high">High</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="URGENT">
+                  <span class="priority-badge urgent">Urgent</span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Due Date (Optional)</label>
+              <input type="date" v-model="dueDate" class="date-input">
+            </div>
+            
+            <div class="form-group">
+              <label>Message to Approver</label>
+              <textarea 
+                v-model="approverMessage" 
+                placeholder="Add any notes or instructions for the approver..."
+                rows="3"
+                class="message-input"
+              ></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="notifyByEmail">
+                Notify approver by email
+              </label>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button @click="closeApproverModal" class="cancel-btn">Cancel</button>
+            <button 
+              @click="sendToNextApprover" 
+              class="send-btn"
+              :disabled="!selectedApprover || isSending || approversList.length === 0"
+            >
+              {{ isSending ? 'Sending...' : 'Send to Next Approver' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Approve Modal -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
@@ -381,8 +537,10 @@ const isLoading = ref(true)
 const loadingMessage = ref('Loading memo...')
 const error = ref(null)
 const showRuler = ref(true)
+const showHistory = ref(true)
 const showApproveModal = ref(false)
 const showRejectModal = ref(false)
+const showApproverModal = ref(false)
 const approvalComment = ref('')
 const rejectionReason = ref('')
 const showToast = ref(false)
@@ -392,6 +550,14 @@ const wordCount = ref(0)
 const charCount = ref(0)
 const showCommentInput = ref(false)
 const newComment = ref('')
+const isLoadingApprovers = ref(false)
+const isSending = ref(false)
+const approversList = ref([])
+const selectedApprover = ref('')
+const priority = ref('MEDIUM')
+const dueDate = ref('')
+const approverMessage = ref('')
+const notifyByEmail = ref(true)
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:3000/api/v1'
@@ -452,9 +618,34 @@ const memo = ref({
   comments: []
 })
 
+// Approval history
+const approvalHistory = ref([])
+
 // Computed
 const isCurrentApprover = computed(() => {
   return memo.value.currentApproverId === currentUserId && memo.value.status === 'PENDING_APPROVAL'
+})
+
+const canSendToNextApprover = computed(() => {  
+  if (memo.value.authorId !== currentUserId) return false
+  
+  if (memo.value.status !== 'APPROVED') return false
+  
+  if (approvalHistory.value.length === 0) return false
+  
+  const sortedHistory = [...approvalHistory.value].sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  )
+  
+  const lastAction = sortedHistory[0]
+  
+  if (lastAction?.action !== 'APPROVED') return false
+  
+  if (memo.value.authorId === currentUserId && memo.value.currentApproverId === currentUserId) {
+    return lastAction.userId === currentUserId
+  }
+  
+  return lastAction.userId === memo.value.currentApproverId
 })
 
 const approvalStatusClass = computed(() => {
@@ -510,6 +701,12 @@ const formatDate = (dateString) => {
   }
 }
 
+const formatDateTime = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleString()
+}
+
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'N/A'
   
@@ -525,6 +722,108 @@ const formatTimeAgo = (dateString) => {
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
   return formatDate(dateString)
+}
+
+// Fetch approval history
+const fetchApprovalHistory = async () => {
+  if (!memoId) return
+  
+  try {
+    const response = await axios.get(`${API_BASE_URL}/memos/${memoId}/approval-history`, {
+      headers: getAuthHeader()
+    })
+    
+    approvalHistory.value = response.data.data || []
+    console.log('Approval History:', approvalHistory.value)
+  } catch (error) {
+    console.error('Error fetching approval history:', error)
+  }
+}
+
+// Fetch approvers list
+const fetchApprovers = async () => {
+  try {
+    isLoadingApprovers.value = true
+    
+    const response = await axios.get(`${API_BASE_URL}/auth/users`, {
+      headers: getAuthHeader()
+    })
+    
+    const usersData = response.data?.data?.data || []
+    
+    approversList.value = usersData.map(user => ({
+      id: user.id,
+      name: user.username,
+      role: user.role || 'Staff',
+      department: user.department || 'General',
+      email: user.email
+    })).filter(user => user.id !== currentUserId) // Filter out current user
+    
+  } catch (error) {
+    console.error('Error fetching approvers:', error)
+    showToastMessage('Failed to load approvers', 'error')
+    approversList.value = []
+  } finally {
+    isLoadingApprovers.value = false
+  }
+}
+
+// Open approver modal
+const openApproverModal = async () => {
+  showApproverModal.value = true
+  await fetchApprovers()
+}
+
+// Close approver modal
+const closeApproverModal = () => {
+  showApproverModal.value = false
+  selectedApprover.value = ''
+  priority.value = 'MEDIUM'
+  dueDate.value = ''
+  approverMessage.value = ''
+}
+
+// Send to next approver
+const sendToNextApprover = async () => {
+  if (!selectedApprover.value) {
+    showToastMessage('Please select an approver', 'error')
+    return
+  }
+  
+  try {
+    isSending.value = true
+    
+    const payload = {
+      approverId: selectedApprover.value,
+      priority: priority.value,
+      dueDate: dueDate.value || undefined,
+      message: approverMessage.value || undefined,
+      notifyByEmail: notifyByEmail.value,
+    }
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/memos/${memoId}/send-approval`,
+      payload,
+      { headers: getAuthHeader() }
+    )
+    
+    // Update local state
+    memo.value.status = 'PENDING_APPROVAL'
+    const approver = approversList.value.find(a => a.id === selectedApprover.value)
+    memo.value.currentApproverId = selectedApprover.value
+    
+    // Refresh approval history
+    await fetchApprovalHistory()
+    
+    showToastMessage(`Memo sent to ${approver?.name} for approval`, 'success')
+    closeApproverModal()
+    
+  } catch (error) {
+    console.error('Error sending for approval:', error)
+    showToastMessage('Failed to send for approval', 'error')
+  } finally {
+    isSending.value = false
+  }
 }
 
 // API Methods
@@ -556,6 +855,9 @@ const fetchMemo = async (id) => {
         status: 'active'
       }
     }
+    
+    // Fetch approval history
+    await fetchApprovalHistory()
     calculateWordCount()
     
   } catch (err) {
@@ -576,6 +878,10 @@ const approveMemo = async () => {
     
     memo.value.status = 'APPROVED'
     showApproveModal.value = false
+    
+    // Refresh approval history
+    await fetchApprovalHistory()
+    
     showToastMessage('Memo approved successfully', 'success')
     approvalComment.value = ''
     
@@ -597,6 +903,10 @@ const rejectMemo = async () => {
     
     memo.value.status = 'REJECTED'
     showRejectModal.value = false
+    
+    // Refresh approval history
+    await fetchApprovalHistory()
+    
     showToastMessage('Memo rejected', 'error')
     rejectionReason.value = ''
     
@@ -772,6 +1082,220 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Approval History Styles */
+.approval-history {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dark .approval-history {
+  background-color: var(--color-gray-900);
+  border-color: var(--color-gray-800);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.history-header h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-gray-800);
+}
+
+.dark .history-header h4 {
+  color: var(--color-gray-200);
+}
+
+.history-toggle {
+  font-size: 0.875rem;
+  color: var(--color-brand-500);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.history-timeline {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.history-item {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  position: relative;
+}
+
+.history-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 40px;
+  bottom: -8px;
+  width: 2px;
+  background-color: var(--color-gray-300);
+}
+
+.dark .history-item:not(:last-child)::after {
+  background-color: var(--color-gray-600);
+}
+
+.history-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.history-icon.sent {
+  background-color: #E3F2FD;
+  color: #1976D2;
+}
+
+.history-icon.approved {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+
+.history-icon.rejected {
+  background-color: #FFEBEE;
+  color: #C62828;
+}
+
+.dark .history-icon.sent {
+  background-color: #1A3A4A;
+  color: #64B5F6;
+}
+
+.dark .history-icon.approved {
+  background-color: #1B3A2B;
+  color: #81C784;
+}
+
+.dark .history-icon.rejected {
+  background-color: #4A2A2A;
+  color: #E57373;
+}
+
+.history-content {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+.history-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.history-action {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
+  background-color: var(--color-gray-200);
+  color: var(--color-gray-600);
+}
+
+.dark .history-action {
+  background-color: var(--color-gray-700);
+  color: var(--color-gray-300);
+}
+
+.history-time {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+  margin-left: auto;
+}
+
+.history-comment {
+  font-style: italic;
+  color: var(--color-gray-600);
+  margin-bottom: 0.125rem;
+}
+
+.dark .history-comment {
+  color: var(--color-gray-400);
+}
+
+.history-details {
+  font-size: 0.75rem;
+  color: var(--color-brand-500);
+}
+
+/* Priority Options for Modal */
+.priority-options {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.priority-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.priority-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.priority-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.priority-badge.low {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+.priority-badge.medium {
+  background-color: #E3F2FD;
+  color: #1976D2;
+}
+.priority-badge.high {
+  background-color: #FFF3E0;
+  color: #F57C00;
+}
+.priority-badge.urgent {
+  background-color: #FFEBEE;
+  color: #C62828;
+}
+
+.dark .priority-badge.low {
+  background-color: #1B3A2B;
+  color: #81C784;
+}
+.dark .priority-badge.medium {
+  background-color: #1A3A4A;
+  color: #64B5F6;
+}
+.dark .priority-badge.high {
+  background-color: #4A3A2A;
+  color: #FFB74D;
+}
+.dark .priority-badge.urgent {
+  background-color: #4A2A2A;
+  color: #E57373;
+}
+
 /* Editor Header */
 .editor-header {
   background-color: var(--color-white);
@@ -1745,6 +2269,8 @@ onMounted(() => {
   color: var(--color-gray-300);
 }
 
+.approver-select,
+.date-input,
 .message-input {
   width: 100%;
   padding: 0.75rem;
@@ -1753,14 +2279,32 @@ onMounted(() => {
   font-size: 0.875rem;
   background-color: var(--color-white);
   color: var(--color-gray-900);
-  font-family: inherit;
-  resize: vertical;
 }
 
+.dark .approver-select,
+.dark .date-input,
 .dark .message-input {
   background-color: var(--color-gray-800);
   border-color: var(--color-gray-700);
   color: var(--color-gray-100);
+}
+
+.message-input {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
 }
 
 .modal-footer {
@@ -1847,7 +2391,8 @@ onMounted(() => {
   .attachments-section,
   .modal-overlay,
   .comments-section,
-  .creator-info-card {
+  .creator-info-card,
+  .approval-history {
     display: none !important;
   }
   
@@ -1908,6 +2453,11 @@ onMounted(() => {
   
   .replies-list {
     margin-left: 0;
+  }
+  
+  .priority-options {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 </style>
