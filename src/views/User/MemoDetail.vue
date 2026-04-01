@@ -72,7 +72,7 @@
             Reject
           </button>
           
-          <!-- Send to Next Approver button - appears for author after an approver has approved -->
+          <!-- Send to Next Approver button -->
           <button 
             v-if="canSendToNextApprover"
             @click="openApproverModal" 
@@ -214,11 +214,106 @@
       <div class="document-view-container">
         <div class="document-page" 
              :style="{ 
-               fontFamily: 'Century Gothic', 
-               fontSize: '12px', 
-               lineHeight: '1.5' 
+               fontFamily: memo.metadata?.fontFamily || 'Century Gothic', 
+               fontSize: (memo.metadata?.fontSize || 12) + 'px', 
+               lineHeight: memo.metadata?.lineHeight || '1.5'
              }">
           <div class="document-content" v-html="memo.content"></div>
+          
+          <!-- Memo Footer Section - Updated to match new structure -->
+          <div class="memo-footer-divider"></div>
+          <div class="memo-footer">
+            <!-- Signatory Row -->
+            <div class="signatory-row">
+              <div class="signatory" v-for="(sig, idx) in (memo.metadata?.footerFields?.signatories || [])" :key="idx">
+                <div class="signatory-name">{{ sig.name || '_________________________' }}</div>
+                <div class="signatory-role">{{ sig.role || '_________________________' }}</div>
+              </div>
+            </div>
+
+            <!-- Opex/Capex Section -->
+            <div class="opex-section">
+              <div class="opex-title">Opex/Capex</div>
+
+              <!-- Row 1: Monthly Budget | Expense to Date | Balance -->
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">Monthly Budget ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.monthlyBudget) || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Expense to Date ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.monthlyExpense) || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Balance ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.monthlyBalance) || '_________________________' }}</div>
+                </div>
+              </div>
+
+              <!-- Row 2: Annual Budget | Expense to Date | Balance -->
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">Annual Budget ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.annualBudget) || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Expense to Date ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.annualExpense) || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Balance ₦</div>
+                  <div class="opex-value">{{ formatCurrency(memo.metadata?.footerFields?.annualBalance) || '_________________________' }}</div>
+                </div>
+              </div>
+
+              <!-- Row 3: FINCON | Signature | Date -->
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">FINCON</div>
+                  <div class="opex-value">{{ memo.metadata?.footerFields?.fincon || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Signature</div>
+                  <div class="opex-value">{{ memo.metadata?.footerFields?.signature || '_________________________' }}</div>
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Date</div>
+                  <div class="opex-value">{{ memo.metadata?.footerFields?.finconDate || '_________________________' }}</div>
+                </div>
+              </div>
+
+              <!-- Comments -->
+              <div class="opex-comments-row">
+                <div class="opex-label">Comments</div>
+                <div class="opex-value opex-value--wide">{{ memo.metadata?.footerFields?.comments || '_________________________' }}</div>
+              </div>
+            </div>
+
+            <!-- Concurrence Section -->
+            <!-- <div class="concurrence-section">
+              <div class="concurrence-title">Concurrence:</div>
+              <div class="signoff-block" v-for="(person, idx) in (memo.metadata?.footerFields?.concurrence || [])" :key="'c' + idx">
+                <div class="signoff-name-line">
+                  <span class="signoff-name">{{ person.name || '_________________________' }}</span>
+                  <span class="signoff-line"></span>
+                </div>
+                <div class="signoff-role">{{ person.role || '_________________________' }}</div>
+              </div>
+            </div> -->
+
+            <!-- Approved By Section -->
+            <div class="approved-section">
+              <div class="concurrence-title">Approved By:</div>
+              <div class="signoff-block" v-for="(person, idx) in (memo.metadata?.footerFields?.approvedBy || [])" :key="'a' + idx">
+                <div class="signoff-name-line">
+                  <span class="signoff-name">{{ person.name || '_________________________' }}</span>
+                  <span class="signoff-line"></span>
+                </div>
+                <div class="signoff-role">{{ person.role || '_________________________' }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -525,7 +620,6 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
-import * as mammoth from 'mammoth'
 import axios from 'axios'
 
 const route = useRoute()
@@ -578,7 +672,7 @@ const getCurrentUser = () => {
   }
 }
 
-// Define getInitials FIRST before it's used
+// Define getInitials
 const getInitials = (name) => {
   if (!name) return 'U'
   return name
@@ -607,6 +701,12 @@ const memo = ref({
   createdAt: '',
   status: 'DRAFT',
   content: '',
+  metadata: {
+    fontFamily: 'Century Gothic',
+    fontSize: 12,
+    lineHeight: '1.5',
+    footerFields: {}
+  },
   creator: {
     name: '',
     role: '',
@@ -620,6 +720,19 @@ const memo = ref({
 
 // Approval history
 const approvalHistory = ref([])
+
+// Helper function to format currency
+const formatCurrency = (value) => {
+  if (!value) return ''
+  const num = parseFloat(value.toString().replace(/,/g, ''))
+  if (isNaN(num)) return value
+  return new Intl.NumberFormat('en-NG', { 
+    style: 'currency', 
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num).replace('NGN', '₦')
+}
 
 // Computed
 const isCurrentApprover = computed(() => {
@@ -664,7 +777,7 @@ const sortedComments = computed(() => {
   )
 })
 
-// Methods (defined after getInitials)
+// Methods
 const goToDashboard = () => {
   router.push('/main-dashboard')
 }
@@ -734,7 +847,6 @@ const fetchApprovalHistory = async () => {
     })
     
     approvalHistory.value = response.data.data || []
-    console.log('Approval History:', approvalHistory.value)
   } catch (error) {
     console.error('Error fetching approval history:', error)
   }
@@ -757,7 +869,7 @@ const fetchApprovers = async () => {
       role: user.role || 'Staff',
       department: user.department || 'General',
       email: user.email
-    })).filter(user => user.id !== currentUserId) // Filter out current user
+    })).filter(user => user.id !== currentUserId)
     
   } catch (error) {
     console.error('Error fetching approvers:', error)
@@ -801,18 +913,16 @@ const sendToNextApprover = async () => {
       notifyByEmail: notifyByEmail.value,
     }
     
-    const response = await axios.post(
+    await axios.post(
       `${API_BASE_URL}/memos/${memoId}/send-approval`,
       payload,
       { headers: getAuthHeader() }
     )
     
-    // Update local state
     memo.value.status = 'PENDING_APPROVAL'
     const approver = approversList.value.find(a => a.id === selectedApprover.value)
     memo.value.currentApproverId = selectedApprover.value
     
-    // Refresh approval history
     await fetchApprovalHistory()
     
     showToastMessage(`Memo sent to ${approver?.name} for approval`, 'success')
@@ -837,14 +947,18 @@ const fetchMemo = async (id) => {
       headers: getAuthHeader()
     })
     
-    console.log('Memo response:', response.data)
-    
     const memoData = response.data?.data || response.data
     
     memo.value = {
       ...memoData,
       status: memoData.status || 'DRAFT',
       content: memoData.content || '',
+      metadata: memoData.metadata || {
+        fontFamily: 'Century Gothic',
+        fontSize: 12,
+        lineHeight: '1.5',
+        footerFields: {}
+      },
       attachments: memoData.attachments || [],
       comments: memoData.comments || [],
       creator: {
@@ -856,7 +970,6 @@ const fetchMemo = async (id) => {
       }
     }
     
-    // Fetch approval history
     await fetchApprovalHistory()
     calculateWordCount()
     
@@ -878,8 +991,6 @@ const approveMemo = async () => {
     
     memo.value.status = 'APPROVED'
     showApproveModal.value = false
-    
-    // Refresh approval history
     await fetchApprovalHistory()
     
     showToastMessage('Memo approved successfully', 'success')
@@ -903,8 +1014,6 @@ const rejectMemo = async () => {
     
     memo.value.status = 'REJECTED'
     showRejectModal.value = false
-    
-    // Refresh approval history
     await fetchApprovalHistory()
     
     showToastMessage('Memo rejected', 'error')
@@ -1022,54 +1131,6 @@ const calculateWordCount = () => {
   charCount.value = text.length
 }
 
-// Load DOCX file and convert to HTML (if needed)
-const loadDocxFile = async (fileUrl) => {
-  try {
-    loadingMessage.value = 'Converting document...'
-    
-    const response = await fetch(fileUrl)
-    const arrayBuffer = await response.arrayBuffer()
-    
-    const result = await mammoth.convertToHtml({ arrayBuffer }, {
-      styleMap: [
-        "p[style-name='Title'] => h1",
-        "p[style-name='Heading 1'] => h1",
-        "p[style-name='Heading 2'] => h2",
-        "p[style-name='Heading 3'] => h3",
-        "p[style-name='Subtitle'] => h2:fresh",
-        "r[style-name='Strong'] => strong",
-        "r[style-name='Emphasis'] => em",
-      ],
-      includeDefaultStyleMap: true,
-      convertImage: mammoth.images.imgElement(function(element) {
-        return element.read("base64").then(function(imageBuffer) {
-          return {
-            src: "data:" + element.contentType + ";base64," + imageBuffer
-          };
-        });
-      })
-    })
-    
-    let html = result.value
-    
-    html = `
-      <div style="font-family: 'Century Gothic', sans-serif; max-width: 8.5in; margin: 0 auto;">
-        ${html}
-      </div>
-    `
-    
-    memo.value.content = html
-    
-    if (result.messages.length > 0) {
-      console.log('Conversion messages:', result.messages)
-    }
-    
-  } catch (error) {
-    console.error('Error loading DOCX:', error)
-    throw error
-  }
-}
-
 // Load memo data on mount
 onMounted(() => {
   if (memoId) {
@@ -1082,6 +1143,281 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Footer Styles - Updated to match new structure */
+.memo-footer-divider {
+  border: none;
+  border-top: 2px solid var(--color-gray-300);
+  margin: 2rem 0 1.5rem;
+}
+
+.dark .memo-footer-divider {
+  border-top-color: var(--color-gray-700);
+}
+
+.memo-footer {
+  margin-top: 1.5rem;
+  font-size: 11px;
+  color: var(--color-gray-700);
+}
+
+.dark .memo-footer {
+  color: var(--color-gray-400);
+}
+
+/* Signatory Row */
+.signatory-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.signatory {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.signatory-name {
+  font-weight: 700;
+  font-size: 11px;
+  border-bottom: 1px dashed var(--color-gray-400);
+  padding-bottom: 0.25rem;
+}
+
+.signatory-role {
+  font-size: 10px;
+  color: var(--color-gray-600);
+}
+
+.dark .signatory-role {
+  color: var(--color-gray-500);
+}
+
+/* Opex/Capex Section */
+.opex-section {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--color-gray-300);
+  padding-top: 0.75rem;
+}
+
+.dark .opex-section {
+  border-top-color: var(--color-gray-700);
+}
+
+.opex-title {
+  font-weight: 700;
+  font-size: 11px;
+  text-decoration: underline;
+  margin-bottom: 0.75rem;
+}
+
+.opex-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.opex-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.opex-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-gray-600);
+}
+
+.dark .opex-label {
+  color: var(--color-gray-500);
+}
+
+.opex-value {
+  border: 1px solid var(--color-gray-300);
+  padding: 0.25rem 0.5rem;
+  font-size: 10px;
+  background-color: var(--color-gray-50);
+  border-radius: 2px;
+}
+
+.dark .opex-value {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-gray-700);
+  color: var(--color-gray-300);
+}
+
+.opex-value--wide {
+  width: 100%;
+}
+
+.opex-comments-row {
+  margin-top: 0.5rem;
+}
+
+/* Concurrence & Approved By Sections */
+.concurrence-section,
+.approved-section {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--color-gray-300);
+  padding-top: 0.75rem;
+}
+
+.dark .concurrence-section,
+.dark .approved-section {
+  border-top-color: var(--color-gray-700);
+}
+
+.concurrence-title {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 0.75rem;
+}
+
+.signoff-block {
+  margin-bottom: 1rem;
+}
+
+.signoff-name-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.signoff-name {
+  font-weight: 600;
+  font-size: 11px;
+  min-width: 200px;
+  border-bottom: 1px dashed var(--color-gray-400);
+  padding-bottom: 0.15rem;
+}
+
+.signoff-line {
+  flex: 1;
+  border-bottom: 1px solid var(--color-gray-400);
+  margin-bottom: 3px;
+}
+
+.signoff-role {
+  font-size: 10px;
+  color: var(--color-gray-600);
+  margin-left: 0.5rem;
+}
+
+.dark .signoff-role {
+  color: var(--color-gray-500);
+}
+
+/* Add footer styles */
+.memo-footer-divider {
+  border: none;
+  border-top: 2px solid var(--color-gray-300);
+  margin: 2rem 0 1.5rem;
+}
+
+.dark .memo-footer-divider {
+  border-top-color: var(--color-gray-700);
+}
+
+.memo-footer {
+  margin-top: 1.5rem;
+  font-size: 11px;
+  color: var(--color-gray-700);
+}
+
+.dark .memo-footer {
+  color: var(--color-gray-400);
+}
+
+.footer-signature-block {
+  margin-bottom: 1.5rem;
+}
+
+.signature-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--color-gray-300);
+}
+
+.dark .signature-line {
+  border-bottom-color: var(--color-gray-700);
+}
+
+.signature-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.signature-field strong {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--color-gray-600);
+}
+
+.dark .signature-field strong {
+  color: var(--color-gray-500);
+}
+
+.signature-value {
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.signature-name {
+  font-size: 10px;
+  color: var(--color-brand-600);
+  font-weight: 500;
+}
+
+.dark .signature-name {
+  color: var(--color-brand-400);
+}
+
+.footer-distribution,
+.footer-reference,
+.footer-department {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-gray-200);
+}
+
+.dark .footer-distribution,
+.dark .footer-reference,
+.dark .footer-department {
+  border-top-color: var(--color-gray-700);
+}
+
+.footer-distribution strong,
+.footer-reference strong,
+.footer-department strong {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--color-gray-600);
+  margin-bottom: 0.25rem;
+}
+
+.dark .footer-distribution strong,
+.dark .footer-reference strong,
+.dark .footer-department strong {
+  color: var(--color-gray-500);
+}
+
+.footer-distribution p,
+.footer-reference span,
+.footer-department span {
+  font-size: 11px;
+  line-height: 1.4;
+}
 /* Approval History Styles */
 .approval-history {
   background-color: var(--color-white);
