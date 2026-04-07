@@ -262,6 +262,37 @@
       <button @click="insertHorizontalRule" class="toolbar-btn" title="Horizontal Line">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18"/></svg>
       </button>
+      
+      <!-- Attachment Button -->
+      <div class="toolbar-divider"></div>
+      <button @click="triggerAttachmentUpload" class="toolbar-btn" title="Add Attachment">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+      
+      <!-- Hidden file input -->
+      <input 
+        type="file" 
+        ref="attachmentInput" 
+        multiple 
+        style="display: none" 
+        @change="handleAttachmentSelect"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+      />
+    </div>
+
+    <!-- Attachment List -->
+    <div v-if="memoAttachments.length > 0" class="attachment-list">
+      <div v-for="(file, index) in memoAttachments" :key="index" class="attachment-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <span class="attachment-name">{{ file.name }}</span>
+        <span class="attachment-size">{{ formatFileSize(file.size) }}</span>
+        <button @click="removeAttachment(index)" class="remove-attachment">✕</button>
+      </div>
     </div>
 
     <!-- Ruler -->
@@ -403,6 +434,10 @@ const currentApprover = ref('')
 const hasUnsavedChanges = ref(false)
 const lastSavedContent = ref('')
 const lastSavedTitle = ref('')
+
+// Attachment state
+const memoAttachments = ref([])
+const attachmentInput = ref(null)
 
 // Footer fields state - initialize with default values
 const footerFields = ref({
@@ -579,6 +614,28 @@ const clearDraft = () => {
   localStorage.removeItem('memo_draft_data')
 }
 
+// Attachment helpers
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+const triggerAttachmentUpload = () => {
+  attachmentInput.value?.click()
+}
+
+const handleAttachmentSelect = (event) => {
+  const files = Array.from(event.target.files)
+  memoAttachments.value.push(...files)
+  event.target.value = ''
+}
+
+const removeAttachment = (index) => {
+  memoAttachments.value.splice(index, 1)
+}
+
 // API calls
 const fetchMemo = async (id) => {
   try {
@@ -672,28 +729,38 @@ const createMemo = async () => {
       showToastMessage('Please enter a document title', 'error')
       return
     }
-    const payload = {
-      title: memoTitle.value.trim(),
-      content: editor.value?.getHTML() || '',
-      branch: user.branch || 'Head Office',
-      metadata: {
-        fontFamily: fontFamily.value, 
-        fontSize: fontSize.value, 
-        lineHeight: lineHeight.value,
-        wordCount: wordCount.value, 
-        characterCount: charCount.value,
-        footerFields: footerFields.value,
-      },
+    
+    const formData = new FormData()
+    formData.append('title', memoTitle.value.trim())
+    formData.append('content', editor.value?.getHTML() || '')
+    formData.append('branch', user.branch || 'Head Office')
+    formData.append('metadata', JSON.stringify({
+      fontFamily: fontFamily.value,
+      fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+      wordCount: wordCount.value,
+      characterCount: charCount.value,
+      footerFields: footerFields.value,
+    }))
+    
+    // Append attachments
+    for (const file of memoAttachments.value) {
+      formData.append('attachments', file)
     }
-    const response = await axios.post(`${API_BASE_URL}/memos`, payload, { headers: getAuthHeader() })
+    
+    const response = await axios.post(`${API_BASE_URL}/memos`, formData, {
+      headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' }
+    })
+    
     const newMemo = response.data.data
     memoId.value = newMemo.id
     memoReference.value = newMemo.reference
     router.replace({ params: { id: newMemo.id } })
-    lastSavedContent.value = payload.content
-    lastSavedTitle.value = payload.title
+    lastSavedContent.value = editor.value?.getHTML() || ''
+    lastSavedTitle.value = memoTitle.value
     lastSavedFooterFields.value = { ...footerFields.value }
     hasUnsavedChanges.value = false
+    memoAttachments.value = []
     clearDraft()
     showToastMessage('Memo created successfully', 'success')
     return newMemo
@@ -804,6 +871,7 @@ const sendToApprover = async () => {
     isSending.value = false
   }
 }
+
 const loadDocxFromFile = async (file) => {
   try {
     isLoading.value = true
@@ -833,6 +901,7 @@ const loadDocxFromFile = async (file) => {
     memoId.value = null
     memoTitle.value = file.name.replace(/\.[^/.]+$/, '')
     memoReference.value = ''
+    memoAttachments.value = []
     
     // Reset footer for new file with the new structure
     footerFields.value = {
@@ -869,6 +938,7 @@ const loadDocxFromFile = async (file) => {
     isLoading.value = false
   }
 }
+
 // Template loading - load the default DOCX template
 const loadDocxTemplate = async (fileUrl) => {
   try {
@@ -912,6 +982,7 @@ const loadDocxTemplate = async (fileUrl) => {
     if (editor.value) editor.value.commands.setContent(html)
     memoTitle.value = 'New Memo'
     memoReference.value = ''
+    memoAttachments.value = []
     lastSavedContent.value = html
     lastSavedTitle.value = 'New Memo'
     
@@ -969,6 +1040,7 @@ const handleNew = () => {
   memoReference.value = ''
   currentApprovalStatus.value = 'Draft'
   currentApprover.value = ''
+  memoAttachments.value = []
   footerFields.value = {
     signatories: [
       { name: 'Ugochukwu Alagbu', role: 'IT Department' },
@@ -1000,7 +1072,6 @@ const handleNew = () => {
   clearDraft()
   activeMenu.value = null
 }
-
 
 const handleOpen = () => {
   const input = document.createElement('input')
@@ -1301,6 +1372,56 @@ onUnmounted(() => {
 .dark .color-picker-dropdown { background-color: var(--color-gray-800); border-color: var(--color-gray-700); }
 .color-input { width: 8rem; height: 2rem; border: none; background: transparent; cursor: pointer; }
 
+/* Attachment List */
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+.dark .attachment-list {
+  background-color: var(--color-gray-800);
+  border-bottom-color: var(--color-gray-700);
+}
+.attachment-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: 2rem;
+  font-size: 0.75rem;
+}
+.dark .attachment-badge {
+  background-color: var(--color-gray-900);
+  border-color: var(--color-gray-600);
+}
+.attachment-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-size {
+  color: var(--color-gray-500);
+  font-size: 0.7rem;
+}
+.remove-attachment {
+  background: none;
+  border: none;
+  color: var(--color-error-500);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 50%;
+}
+.remove-attachment:hover {
+  color: var(--color-error-700);
+}
+
 /* Ruler */
 .ruler { background-color: var(--color-gray-50); border-bottom: 1px solid var(--color-gray-200); height: 1.5rem; padding: 0 2rem; display: flex; align-items: flex-end; flex-shrink: 0; }
 .dark .ruler { background-color: var(--color-gray-800); border-bottom-color: var(--color-gray-700); }
@@ -1387,5 +1508,6 @@ onUnmounted(() => {
   .action-btn { flex: 1; justify-content: center; }
   .modal-content { width: 95%; margin: 1rem; }
   .priority-options { flex-direction: column; gap: .5rem; }
+  .attachment-name { max-width: 120px; }
 }
 </style>

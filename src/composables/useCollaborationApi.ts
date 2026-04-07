@@ -136,13 +136,22 @@ export function useCollaborationApi() {
     return run<{ data: ApiDocument }>(() => apiFetch(`/documents/${id}`))
   }
 
-  async function uploadDocument(file: File, name?: string) {
+  async function uploadDocument(file: File, name?: string, shareWith?: string, permission?: 'view' | 'comment' | 'edit') {
     const form = new FormData()
     form.append('file', file)
     if (name) form.append('name', name)
+    if (shareWith) form.append('shareWith', shareWith)
+    if (permission) form.append('permission', permission)
 
     return run<{ data: ApiDocument }>(() =>
-      apiFetch('/documents/upload', { method: 'POST', body: form }),
+      apiFetch('/documents/upload', { 
+        method: 'POST', 
+        body: form,
+        headers: {
+          // Don't set Content-Type header when using FormData - browser will set it with boundary
+          'Accept': 'application/json',
+        },
+      }),
     )
   }
 
@@ -159,6 +168,7 @@ export function useCollaborationApi() {
   // ── Comments ─────────────────────────────────────────────────────────────
 
   async function fetchComments(documentId: string) {
+    console.log('Documnent ID:', documentId);
     return run<{ data: ApiComment[] }>(() =>
       apiFetch(`/documents/${documentId}/comments`),
     )
@@ -170,6 +180,7 @@ export function useCollaborationApi() {
     parentId?: string,
     mentions?: string[],
   ) {
+    console.log('Documnent ID:', documentId);
     return run<{ data: ApiComment }>(() =>
       apiFetch(`/documents/${documentId}/comments`, {
         method: 'POST',

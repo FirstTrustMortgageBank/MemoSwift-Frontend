@@ -325,8 +325,8 @@
             <svg class="attachment-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
             </svg>
-            <span class="attachment-name">{{ file.name }}</span>
-            <span class="attachment-size">{{ file.size }}</span>
+            <span class="attachment-name">{{ file.filename }}</span>
+            <span class="attachment-size">{{ file.size }}KB</span>
             <button @click="downloadAttachment(file)" class="attachment-download">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -1033,9 +1033,47 @@ const exportAsPDF = () => {
   showToastMessage('PDF export coming soon', 'info')
 }
 
-const downloadAttachment = (file) => {
-  console.log('Downloading attachment:', file.name)
-  showToastMessage(`Downloading ${file.name}`, 'success')
+const downloadAttachment = async (file) => {
+  try {
+    console.log('Downloading attachment:', file.filename)
+    
+    // Use the storageUrl from the attachment
+    const downloadUrl = file.storageUrl
+    
+    if (!downloadUrl) {
+      showToastMessage('Download URL not available', 'error')
+      return
+    }
+    
+    // Method 1: Open in new tab (for PDFs and images that can be viewed)
+    // window.open(downloadUrl, '_blank')
+    
+    // Method 2: Force download using fetch
+    const response = await fetch(downloadUrl, {
+      headers: getAuthHeader()
+    })
+    
+    if (!response.ok) {
+      throw new Error('Download failed')
+    }
+    
+    const blob = await response.blob()
+    
+    // Create a download link
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.originalName || file.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    showToastMessage(`Downloading ${file.originalName || file.filename}`, 'success')
+  } catch (error) {
+    console.error('Error downloading attachment:', error)
+    showToastMessage('Failed to download attachment', 'error')
+  }
 }
 
 const showToastMessage = (message, type = 'success') => {

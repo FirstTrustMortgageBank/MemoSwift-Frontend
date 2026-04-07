@@ -583,15 +583,48 @@ async function loadDocuments() {
     type: activeFilter.value !== 'all' ? activeFilter.value : undefined,
     tab: activeTab.value !== 'all' ? activeTab.value : undefined,
   })
-  if (res) {
-    documents.value = res.data.map(normaliseDoc)
+
+  console.log('🔍 API Response:', res)
+
+  // Helper function to find array in response
+  function findDocumentsArray(obj: any): any[] {
+    if (!obj) return []
+    if (Array.isArray(obj)) return obj
+    if (typeof obj === 'object') {
+      // Check common property names
+      if (obj.data && Array.isArray(obj.data)) return obj.data
+      if (obj.documents && Array.isArray(obj.documents)) return obj.documents
+      if (obj.items && Array.isArray(obj.items)) return obj.items
+      
+      // Recursively search through object properties
+      for (const key in obj) {
+        const found = findDocumentsArray(obj[key])
+        if (found.length > 0) return found
+      }
+    }
+    return []
   }
+
+  const docs = findDocumentsArray(res)
+  documents.value = docs.map(normaliseDoc)
+  console.log('✅ Documents loaded:', documents.value.length)
 }
 
 async function loadComments(docId: string) {
   commentsLoading.value = true
-  const res = await api.fetchComments(docId)
-  if (res) activeComments.value = res.data
+  const res = await api.fetchComments(docId) as any
+
+  if (Array.isArray(res)) {
+    activeComments.value = res
+  } else if (Array.isArray(res?.data?.data)) {
+    activeComments.value = res.data.data
+  } else if (Array.isArray(res?.data)) {
+    activeComments.value = res.data
+  } else {
+    activeComments.value = []
+    console.warn('Unexpected comments response structure:', res)
+  }
+
   commentsLoading.value = false
 }
 
@@ -638,11 +671,20 @@ async function submitComment() {
   submittingComment.value = true
 
   const res = await api.postComment(selectedDocument.value.id, newComment.value, undefined, mentions)
-  if (res) {
+  
+  if (res && res.data) {
+    // ✅ Ensure activeComments.value is an array before pushing
+    if (!Array.isArray(activeComments.value)) {
+      console.warn('activeComments was not an array, resetting to empty array')
+      activeComments.value = []
+    }
+    
     activeComments.value.push(res.data)
+    
     // Update count on list item
     const listDoc = documents.value.find(d => d.id === selectedDocument.value!.id)
-    if (listDoc) listDoc.commentCount++
+    if (listDoc) listDoc.commentCount = (listDoc.commentCount || 0) + 1
+    
     newComment.value = ''
     showToast('Comment posted', 'success')
     await nextTick()
@@ -845,14 +887,15 @@ function formatDate(dateStr: string) {
 }
 
 function formatTimeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  return `${days}d ago`
+  const date = new Date(dateStr)
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })
 }
 </script>
 
