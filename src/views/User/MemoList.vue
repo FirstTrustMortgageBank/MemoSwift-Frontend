@@ -43,6 +43,17 @@
             <span v-if="activeFilterCount" class="flex items-center justify-center w-5 h-5 text-xs text-white bg-brand-500 rounded-full">{{ activeFilterCount }}</span>
           </button>
           
+          <button 
+            @click="refreshData"
+            :disabled="isRefreshing"
+            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 disabled:opacity-50"
+          >
+            <svg class="w-5 h-5" :class="{ 'animate-spin': isRefreshing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+          </button>
+          
           <router-link
             to="/memo"
             class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
@@ -75,7 +86,7 @@
             <select v-model="filters.status" class="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
               <option value="">All Status</option>
               <option value="DRAFT">Draft</option>
-              <option value="PENDING">Pending Approval</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
             </select>
@@ -123,7 +134,6 @@
           type="text"
           placeholder="Search by title, reference number, or content..."
           class="w-full h-12 pl-10 pr-4 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-          @input="debouncedSearch"
         />
       </div>
 
@@ -144,7 +154,7 @@
         <!-- Memo Count Summary -->
         <div class="flex items-center justify-between mb-4">
           <p class="text-sm text-gray-600 dark:text-gray-400">
-            Showing <span class="font-medium">{{ paginatedMemos.length }}</span> of <span class="font-medium">{{ filteredMemos.length }}</span> memos
+            Showing <span class="font-medium">{{ displayRange }}</span> memos
           </p>
           <button @click="fetchUserMemos" class="text-sm text-brand-500 hover:text-brand-600 flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,25 +183,25 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="memo in paginatedMemos" :key="memo.id" class="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
+              <tr v-for="memo in memos" :key="memo.id" class="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
                 <td class="px-4 py-3">
                   <input type="checkbox" v-model="selectedMemos" :value="memo.id" class="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500">
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.reference || 'N/A' }}</td>
                 <td class="px-4 py-3">
                   <router-link :to="`/memo/${memo.id}`" class="text-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400">
-                    {{ memo.title }}
+                    {{ memo.title || 'Untitled' }}
                   </router-link>
                 </td>
                 <td class="px-4 py-3">
-                  <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.branch }}</span>
+                  <span class="text-sm text-gray-600 dark:text-gray-400">{{ memo.branch || 'N/A' }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.createdAt) }}</td>
                 <td class="px-4 py-3">
                   <span
                     :class="{
                       'px-2 py-1 text-xs font-medium rounded-full': true,
-                      'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500': memo.status === 'PENDING',
+                      'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500': memo.status === 'PENDING_APPROVAL',
                       'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500': memo.status === 'APPROVED',
                       'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400': memo.status === 'DRAFT',
                       'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500': memo.status === 'REJECTED'
@@ -208,7 +218,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                       </svg>
                     </button>
-                    <button @click="editMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="Edit">
+                    <button v-if="memo.status === 'DRAFT'" @click="editMemo(memo.id)" class="p-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400" title="Edit">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                       </svg>
@@ -223,13 +233,13 @@
               </tr>
               
               <!-- Empty State -->
-              <tr v-if="filteredMemos.length === 0">
+              <tr v-if="memos.length === 0">
                 <td colspan="7" class="py-12 text-center">
                   <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                   </svg>
                   <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white/90">No memos found</h3>
-                  <p class="mt-2 text-gray-500 dark:text-gray-400">{{ searchQuery || filters.status || filters.branch ? 'Try adjusting your filters' : 'You haven\'t created any memos yet' }}</p>
+                  <p class="mt-2 text-gray-500 dark:text-gray-400">{{ hasActiveFilters ? 'Try adjusting your filters' : 'You haven\'t created any memos yet' }}</p>
                   <router-link to="/memo" class="inline-flex items-center gap-2 px-4 py-2 mt-4 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -271,32 +281,129 @@
         </div>
 
         <!-- Pagination -->
-        <div class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
+        <div v-if="totalItems > 0" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
             <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
             </select>
           </div>
-          <div class="flex items-center gap-4">
+          
+          <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 dark:text-gray-400">
-              Page {{ currentPage }} of {{ totalPages }}
+              {{ displayRange }}
             </span>
-            <div class="flex items-center gap-2">
-              <button @click="currentPage--" :disabled="currentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
+          </div>
+          
+          <div class="flex items-center gap-1">
+            <button 
+              @click="goToFirstPage" 
+              :disabled="currentPage === 1 || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="First Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+              </svg>
+            </button>
+            
+            <button 
+              @click="goToPreviousPage" 
+              :disabled="currentPage === 1 || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Previous Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            
+            <!-- Page Numbers -->
+            <template v-for="page in visiblePages" :key="page">
+              <button
+                v-if="page !== '...'"
+                @click="goToPage(Number(page))"
+                :disabled="isLoading"
+                :class="[
+                  'px-3 py-1 text-sm font-medium rounded-lg transition-colors',
+                  currentPage === page
+                    ? 'bg-brand-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800',
+                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                ]"
+              >
+                {{ page }}
               </button>
-              <button @click="currentPage++" :disabled="currentPage === totalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </button>
-            </div>
+              <span v-else class="px-2 text-gray-400">...</span>
+            </template>
+            
+            <button 
+              @click="goToNextPage" 
+              :disabled="currentPage === totalPages || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Next Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+            
+            <button 
+              @click="goToLastPage" 
+              :disabled="currentPage === totalPages || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Last Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Simple message if no pagination needed (all items fit on one page) -->
+        <div v-else-if="memos.length > 0 && totalItems === 0" class="flex items-center justify-between px-4 py-3 mt-4 border-t border-gray-200 dark:border-gray-800">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
+            <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 dark:text-gray-400">
+              Showing {{ memos.length }} of {{ memos.length }} memos
+            </span>
+          </div>
+          
+          <div class="flex items-center gap-1">
+            <button disabled class="p-2 text-gray-400 cursor-not-allowed rounded-lg" title="First Page">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <button disabled class="p-2 text-gray-400 cursor-not-allowed rounded-lg" title="Previous Page">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <button class="px-3 py-1 text-sm font-medium rounded-lg bg-brand-500 text-white">1</button>
+            <button disabled class="p-2 text-gray-400 cursor-not-allowed rounded-lg" title="Next Page">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+            <button disabled class="p-2 text-gray-400 cursor-not-allowed rounded-lg" title="Last Page">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </ComponentCard>
@@ -371,7 +478,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -392,8 +499,10 @@ const getAuthHeader = () => {
 
 // State
 const isLoading = ref(true)
+const isRefreshing = ref(false)
 const error = ref(null)
 const memos = ref([])
+const totalItems = ref(0)
 const showFilters = ref(false)
 const searchQuery = ref('')
 const selectedMemos = ref([])
@@ -401,6 +510,7 @@ const selectAll = ref(false)
 const currentPage = ref(1)
 const rowsPerPage = ref(10)
 const sortBy = ref('date-desc')
+const serverSidePagination = ref(true)
 
 // Delete modal state
 const showDeleteModal = ref(false)
@@ -413,6 +523,9 @@ const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
 
+// Search debounce timeout
+let searchTimeout = null
+
 // Filters
 const filters = ref({
   branch: '',
@@ -422,32 +535,114 @@ const filters = ref({
   endDate: ''
 })
 
-// Fetch user memos from API
+// Fetch user memos from API with pagination
 const fetchUserMemos = async () => {
-  isLoading.value = true
+  if (!isRefreshing.value) {
+    isLoading.value = true
+  }
   error.value = null
   
   try {
+    const params = {
+      page: currentPage.value,
+      limit: rowsPerPage.value
+    }
+    
+    // Add status filter if selected
+    if (filters.value.status) {
+      params.status = filters.value.status
+    }
+    
+    // Add branch filter if selected
+    if (filters.value.branch) {
+      params.branch = filters.value.branch
+    }
+    
+    // Add search query if present
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+    
+    // Add sort parameter
+    if (sortBy.value) {
+      params.sort = sortBy.value
+    }
+    
+    // Add date range filters
+    if (filters.value.dateRange === 'today') {
+      params.fromDate = new Date().toISOString().split('T')[0]
+      params.toDate = new Date().toISOString().split('T')[0]
+    } else if (filters.value.dateRange === 'week') {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      params.fromDate = weekAgo.toISOString().split('T')[0]
+      params.toDate = new Date().toISOString().split('T')[0]
+    } else if (filters.value.dateRange === 'month') {
+      const monthAgo = new Date()
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
+      params.fromDate = monthAgo.toISOString().split('T')[0]
+      params.toDate = new Date().toISOString().split('T')[0]
+    } else if (filters.value.dateRange === 'custom' && filters.value.startDate && filters.value.endDate) {
+      params.fromDate = filters.value.startDate
+      params.toDate = filters.value.endDate
+    }
+    
+    console.log('Fetching memos with params:', params)
+    
     const response = await axios.get(`${API_BASE_URL}/memos/me`, {
-      headers: getAuthHeader()
+      headers: getAuthHeader(),
+      params
     })
     
     console.log('Memos response:', response.data)
     
-    // Handle the response structure
-    const memosData = response.data?.data[0] || response.data
-    memos.value = Array.isArray(memosData) ? memosData : []
+    // Handle the exact response structure: data: [memos[], totalCount]
+    if (response.data?.data) {
+      const responseData = response.data.data
+      
+      // Check if it's the tuple format [array, number]
+      if (Array.isArray(responseData) && responseData.length === 2) {
+        memos.value = responseData[0] || []
+        totalItems.value = responseData[1] || 0
+        console.log('Parsed memos:', memos.value.length, 'totalItems:', totalItems.value)
+      } else if (Array.isArray(responseData)) {
+        // Fallback: just an array of memos
+        memos.value = responseData
+        totalItems.value = responseData.length
+        console.log('Fallback: array of memos. Count:', memos.value.length)
+      } else {
+        console.warn('Unexpected data structure:', responseData)
+        memos.value = []
+        totalItems.value = 0
+      }
+    } else {
+      console.warn('No data in response')
+      memos.value = []
+      totalItems.value = 0
+    }
+    
+    console.log('Final - memos:', memos.value.length, 'totalItems:', totalItems.value)
+    
+    // Reset select all when data changes
+    selectAll.value = false
+    selectedMemos.value = []
     
   } catch (err) {
     console.error('Error fetching memos:', err)
     error.value = err.response?.data?.message || 'Failed to load memos. Please try again.'
     memos.value = []
+    totalItems.value = 0
   } finally {
     isLoading.value = false
+    isRefreshing.value = false
   }
 }
 
 // Computed
+const hasActiveFilters = computed(() => {
+  return filters.value.branch || filters.value.status || filters.value.dateRange !== 'all' || searchQuery.value
+})
+
 const activeFilterCount = computed(() => {
   let count = 0
   if (filters.value.branch) count++
@@ -462,98 +657,78 @@ const allSelectedAreDrafts = computed(() => {
   return selectedMemosList.every(m => m.status === 'DRAFT')
 })
 
-const filteredMemos = computed(() => {
-  let filtered = [...memos.value]
+const totalPages = computed(() => {
+  return Math.ceil(totalItems.value / rowsPerPage.value)
+})
 
-  // Apply search
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(memo => 
-      memo.title?.toLowerCase().includes(query) ||
-      memo.reference?.toLowerCase().includes(query)
-    )
-  }
+const displayRange = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value + 1
+  const end = Math.min(currentPage.value * rowsPerPage.value, totalItems.value)
+  return `${start}-${end} of ${formatNumber(totalItems.value)}`
+})
 
-  // Apply branch filter
-  if (filters.value.branch) {
-    filtered = filtered.filter(memo => memo.branch === filters.value.branch)
-  }
-
-  // Apply status filter
-  if (filters.value.status) {
-    filtered = filtered.filter(memo => memo.status === filters.value.status)
-  }
-
-  // Apply date filter
-  if (filters.value.dateRange === 'today') {
-    const today = new Date().toISOString().split('T')[0]
-    filtered = filtered.filter(memo => {
-      const memoDate = memo.createdAt ? memo.createdAt.split('T')[0] : ''
-      return memoDate === today
-    })
-  } else if (filters.value.dateRange === 'week') {
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const weekAgoStr = weekAgo.toISOString().split('T')[0]
-    filtered = filtered.filter(memo => {
-      const memoDate = memo.createdAt ? memo.createdAt.split('T')[0] : ''
-      return memoDate >= weekAgoStr
-    })
-  } else if (filters.value.dateRange === 'month') {
-    const monthAgo = new Date()
-    monthAgo.setMonth(monthAgo.getMonth() - 1)
-    const monthAgoStr = monthAgo.toISOString().split('T')[0]
-    filtered = filtered.filter(memo => {
-      const memoDate = memo.createdAt ? memo.createdAt.split('T')[0] : ''
-      return memoDate >= monthAgoStr
-    })
-  } else if (filters.value.dateRange === 'custom' && filters.value.startDate && filters.value.endDate) {
-    filtered = filtered.filter(memo => {
-      const memoDate = memo.createdAt ? memo.createdAt.split('T')[0] : ''
-      return memoDate >= filters.value.startDate && memoDate <= filters.value.endDate
-    })
-  }
-
-  // Apply sorting
-  filtered.sort((a, b) => {
-    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0)
-    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0)
-    const titleA = a.title || ''
-    const titleB = b.title || ''
-    
-    switch (sortBy.value) {
-      case 'date-desc':
-        return dateB - dateA
-      case 'date-asc':
-        return dateA - dateB
-      case 'title-asc':
-        return titleA.localeCompare(titleB)
-      case 'title-desc':
-        return titleB.localeCompare(titleA)
-      default:
-        return 0
+const visiblePages = computed(() => {
+  const pages = []
+  const maxVisible = 5
+  
+  if (totalPages.value <= maxVisible) {
+    for (let i = 1; i <= totalPages.value; i++) {
+      pages.push(i)
     }
-  })
-
-  return filtered
+  } else {
+    if (currentPage.value <= 3) {
+      pages.push(1, 2, 3, 4, '...', totalPages.value)
+    } else if (currentPage.value >= totalPages.value - 2) {
+      pages.push(1, '...', totalPages.value - 3, totalPages.value - 2, totalPages.value - 1, totalPages.value)
+    } else {
+      pages.push(1, '...', currentPage.value - 1, currentPage.value, currentPage.value + 1, '...', totalPages.value)
+    }
+  }
+  
+  return pages
 })
 
-const totalPages = computed(() => 
-  Math.ceil(filteredMemos.value.length / rowsPerPage.value)
-)
+// Pagination methods
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    fetchUserMemos()
+  }
+}
 
-const paginatedMemos = computed(() => {
-  const start = (currentPage.value - 1) * rowsPerPage.value
-  const end = start + rowsPerPage.value
-  return filteredMemos.value.slice(start, end)
-})
+const goToFirstPage = () => {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1
+    fetchUserMemos()
+  }
+}
 
-// Watch for filter changes to reset pagination
-watch([filters, searchQuery, sortBy], () => {
-  currentPage.value = 1
-})
+const goToLastPage = () => {
+  if (currentPage.value !== totalPages.value) {
+    currentPage.value = totalPages.value
+    fetchUserMemos()
+  }
+}
+
+const goToPreviousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    fetchUserMemos()
+  }
+}
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    fetchUserMemos()
+  }
+}
 
 // Methods
+const formatNumber = (num) => {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
   try {
@@ -571,6 +746,7 @@ const formatDate = (dateString) => {
 const formatStatus = (status) => {
   const statusMap = {
     'DRAFT': 'Draft',
+    'PENDING_APPROVAL': 'Pending Approval',
     'PENDING': 'Pending Approval',
     'APPROVED': 'Approved',
     'REJECTED': 'Rejected'
@@ -580,16 +756,11 @@ const formatStatus = (status) => {
 
 const toggleSelectAll = () => {
   if (selectAll.value) {
-    selectedMemos.value = paginatedMemos.value.map(m => m.id)
+    selectedMemos.value = memos.value.map(m => m.id)
   } else {
     selectedMemos.value = []
   }
 }
-
-watch(selectedMemos, (newVal) => {
-  selectAll.value = paginatedMemos.value.length > 0 && 
-    paginatedMemos.value.every(m => newVal.includes(m.id))
-})
 
 const resetFilters = () => {
   filters.value = {
@@ -600,14 +771,20 @@ const resetFilters = () => {
     endDate: ''
   }
   searchQuery.value = ''
+  currentPage.value = 1
+  fetchUserMemos()
 }
 
 const applyFilters = () => {
   showFilters.value = false
+  currentPage.value = 1
+  fetchUserMemos()
 }
 
-const debouncedSearch = () => {
-  // Implement debounced search if needed
+const refreshData = async () => {
+  isRefreshing.value = true
+  await fetchUserMemos()
+  showToastMessage('Data refreshed successfully', 'success')
 }
 
 const viewMemo = (id) => {
@@ -615,7 +792,7 @@ const viewMemo = (id) => {
 }
 
 const editMemo = (id) => {
-  router.push(`/memo/${id}`)
+  router.push(`/memo/edit/${id}`)
 }
 
 // Delete modal methods
@@ -628,7 +805,6 @@ const openDeleteModal = (memo) => {
 const openBulkDeleteModal = () => {
   if (selectedMemos.value.length === 0) return
   
-  // Check if all selected are drafts
   const selectedMemosList = memos.value.filter(m => selectedMemos.value.includes(m.id))
   const nonDrafts = selectedMemosList.filter(m => m.status !== 'DRAFT')
   
@@ -658,21 +834,16 @@ const confirmDelete = async () => {
         })
       ))
       
-      // Remove from local list
-      memos.value = memos.value.filter(m => !selectedMemos.value.includes(m.id))
       showToastMessage(`${selectedMemos.value.length} memos deleted successfully`, 'success')
       selectedMemos.value = []
-      fetchUserMemos() // Refresh list after bulk delete
+      fetchUserMemos()
     } else {
       await axios.delete(`${API_BASE_URL}/memos/${memoToDelete.value.id}`, {
         headers: getAuthHeader()
       })
       
-      // Remove from local list
-      memos.value = memos.value.filter(m => m.id !== memoToDelete.value.id)
-      selectedMemos.value = selectedMemos.value.filter(id => id !== memoToDelete.value.id)
       showToastMessage('Memo deleted successfully', 'success')
-      fetchUserMemos() // Refresh list after single delete
+      fetchUserMemos()
     }
     
     closeDeleteModal()
@@ -697,9 +868,41 @@ const showToastMessage = (message, type = 'success') => {
   }, 3000)
 }
 
+// Watchers
+watch(rowsPerPage, () => {
+  currentPage.value = 1
+  fetchUserMemos()
+})
+
+watch(searchQuery, () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    currentPage.value = 1
+    fetchUserMemos()
+  }, 500)
+})
+
+watch(sortBy, () => {
+  currentPage.value = 1
+  fetchUserMemos()
+})
+
+watch(selectedMemos, (newVal) => {
+  selectAll.value = memos.value.length > 0 && 
+    memos.value.every(m => newVal.includes(m.id))
+})
+
 // Load memos on mount
 onMounted(() => {
   fetchUserMemos()
+})
+
+onUnmounted(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 

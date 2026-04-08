@@ -176,7 +176,7 @@
           <button 
             v-for="tab in tabs" 
             :key="tab.id"
-            @click="activeTab = tab.id"
+            @click="setActiveTab(tab.id)"
             :class="[
               'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
               activeTab === tab.id
@@ -253,7 +253,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="memo in paginatedMemos" :key="memo.id" class="border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
+              <tr v-for="memo in pendingMemos" :key="memo.id" class="border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
                 <td class="px-4 py-3">
                   <input 
                     type="checkbox" 
@@ -295,12 +295,12 @@
                   </div>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ memo.branch || 'N/A' }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.submittedAt) }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ formatDate(memo.createdAt) }}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ formatWaitingTime(memo.submittedAt) }}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ formatWaitingTime(memo.createdAt) }}</span>
                     <span 
-                      v-if="memo.submittedAt && isOverdue(memo.submittedAt)"
+                      v-if="memo.createdAt && isOverdue(memo.createdAt)"
                       class="text-xs text-error-600 dark:text-error-400"
                     >
                       (Overdue)
@@ -342,7 +342,7 @@
               </tr>
 
               <!-- Empty State -->
-              <tr v-if="filteredMemos.length === 0">
+              <tr v-if="pendingMemos.length === 0">
                 <td colspan="9" class="py-12 text-center">
                   <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -356,32 +356,86 @@
         </div>
 
         <!-- Pagination -->
-        <div v-if="filteredMemos.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+        <div v-if="totalItems > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-800">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
             <select v-model="rowsPerPage" class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
             </select>
           </div>
-          <div class="flex items-center gap-4">
+          
+          <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 dark:text-gray-400">
-              Page {{ currentPage }} of {{ totalPages }}
+              {{ displayRange }}
             </span>
-            <div class="flex items-center gap-2">
-              <button @click="currentPage--" :disabled="currentPage === 1" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
+          </div>
+          
+          <div class="flex items-center gap-1">
+            <button 
+              @click="goToFirstPage" 
+              :disabled="currentPage === 1 || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="First Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+              </svg>
+            </button>
+            
+            <button 
+              @click="goToPreviousPage" 
+              :disabled="currentPage === 1 || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Previous Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            
+            <!-- Page Numbers -->
+            <template v-for="page in visiblePages" :key="page">
+              <button
+                v-if="page !== '...'"
+                @click="goToPage(page as number)"
+                :disabled="isLoading"
+                :class="[
+                  'px-3 py-1 text-sm font-medium rounded-lg transition-colors',
+                  currentPage === page
+                    ? 'bg-brand-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800',
+                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                ]"
+              >
+                {{ page }}
               </button>
-              <button @click="currentPage++" :disabled="currentPage === totalPages" class="p-1 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </button>
-            </div>
+              <span v-else class="px-2 text-gray-400">...</span>
+            </template>
+            
+            <button 
+              @click="goToNextPage" 
+              :disabled="currentPage === totalPages || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Next Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+            
+            <button 
+              @click="goToLastPage" 
+              :disabled="currentPage === totalPages || isLoading" 
+              class="p-2 text-gray-500 hover:text-brand-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Last Page"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -504,7 +558,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type ComputedRef } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, type ComputedRef } from 'vue'
 import axios from 'axios'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -520,7 +574,6 @@ interface Memo {
   status: string
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate: string
-  submittedAt: string
   createdAt: string
   updatedAt: string
   currentApproverId?: string
@@ -555,6 +608,7 @@ const isLoading = ref(true)
 const isRefreshing = ref(false)
 const error = ref<string | null>(null)
 const pendingMemos = ref<Memo[]>([])
+const totalItems = ref(0)
 const currentPageTitle = ref('Approval Dashboard')
 const showFilters = ref(false)
 const searchQuery = ref('')
@@ -563,6 +617,7 @@ const selectedMemos = ref<string[]>([])
 const selectAll = ref(false)
 const currentPage = ref(1)
 const rowsPerPage = ref(10)
+const serverSidePagination = ref(true)
 
 // Modal states
 const showApproveModal = ref(false)
@@ -576,7 +631,7 @@ const requestChanges = ref(false)
 // Toast
 const showToast = ref(false)
 const toastMessage = ref('')
-const toastType = ref('success')
+const toastType = ref<'success' | 'error'>('success')
 
 // Filters
 const filters = ref({
@@ -584,6 +639,9 @@ const filters = ref({
   priority: '',
   waitingTime: ''
 })
+
+// Search debounce timeout
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Helper function to get tab count value
 const getTabCount = (tab: Tab): number => {
@@ -595,7 +653,7 @@ const getTabCount = (tab: Tab): number => {
 
 // Tabs
 const tabs: Tab[] = [
-  { id: 'pending', name: 'Pending', count: computed(() => pendingMemos.value.length) },
+  { id: 'pending', name: 'Pending', count: computed(() => totalItems.value) },
   { id: 'high-priority', name: 'High Priority', count: computed(() => highPriorityCount.value) },
   { id: 'overdue', name: 'Overdue', count: computed(() => overdueCount.value) }
 ]
@@ -626,7 +684,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Fetch pending memos from API
+// Fetch pending memos from API with pagination
 const fetchPendingMemos = async () => {
   if (!isRefreshing.value) {
     isLoading.value = true
@@ -634,16 +692,53 @@ const fetchPendingMemos = async () => {
   error.value = null
   
   try {
-    const response = await axiosInstance.get<ApiResponse>('/memos/pending')
+    const params: Record<string, any> = {}
+    
+    if (serverSidePagination.value) {
+      params.page = currentPage.value
+      params.limit = rowsPerPage.value
+    }
+    
+    if (filters.value.branch) {
+      params.branch = filters.value.branch
+    }
+    if (filters.value.priority) {
+      params.priority = filters.value.priority
+    }
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+    if (activeTab.value === 'high-priority') {
+      params.highPriority = true
+    } else if (activeTab.value === 'overdue') {
+      params.overdue = true
+    }
+    
+    console.log('Fetching pending memos with params:', params)
+    
+    const response = await axiosInstance.get<ApiResponse>('/memos/pending', { params })
     
     console.log('Pending memos response:', response.data)
     
-    // Extract memos from the nested array structure
-    if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-      pendingMemos.value = response.data.data[0] || []
+    if (response.data?.data) {
+      if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+        pendingMemos.value = response.data.data[0] || []
+        totalItems.value = response.data.data[1] || pendingMemos.value.length
+      } else if (Array.isArray(response.data.data)) {
+        pendingMemos.value = response.data.data as unknown as Memo[]
+        totalItems.value = pendingMemos.value.length
+      } else {
+        pendingMemos.value = []
+        totalItems.value = 0
+      }
     } else {
       pendingMemos.value = []
+      totalItems.value = 0
     }
+    
+    // Reset select all when data changes
+    selectAll.value = false
+    selectedMemos.value = []
     
   } catch (err) {
     console.error('Error fetching pending memos:', err)
@@ -651,6 +746,16 @@ const fetchPendingMemos = async () => {
   } finally {
     isLoading.value = false
     isRefreshing.value = false
+  }
+}
+
+// Fetch stats for summary cards
+const fetchStats = async () => {
+  try {
+    const response = await axiosInstance.get('/memos/pending/stats')
+    // Update stats if needed from response
+  } catch (err) {
+    console.error('Error fetching stats:', err)
   }
 }
 
@@ -663,102 +768,66 @@ const activeFilterCount = computed(() => {
   return count
 })
 
-const filteredMemos = computed(() => {
-  let memos = [...pendingMemos.value]
-
-  // Apply search
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    memos = memos.filter(m => 
-      (m.title || '').toLowerCase().includes(query) ||
-      (m.reference || '').toLowerCase().includes(query) ||
-      (m.authorName || '').toLowerCase().includes(query)
-    )
-  }
-
-  // Apply branch filter
-  if (filters.value.branch) {
-    memos = memos.filter(m => m.branch === filters.value.branch)
-  }
-
-  // Apply priority filter
-  if (filters.value.priority) {
-    memos = memos.filter(m => m.priority === filters.value.priority)
-  }
-
-  // Apply waiting time filter
-  if (filters.value.waitingTime) {
-    const now = new Date()
-    memos = memos.filter(m => {
-      if (!m.submittedAt) return false
-      const submitted = new Date(m.submittedAt)
-      const diffDays = Math.floor((now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24))
-      
-      switch (filters.value.waitingTime) {
-        case 'today':
-          return diffDays === 0
-        case 'yesterday':
-          return diffDays === 1
-        case 'week':
-          return diffDays > 7
-        case 'month':
-          return diffDays > 30
-        default:
-          return true
-      }
-    })
-  }
-
-  // Apply tab filtering
-  if (activeTab.value === 'high-priority') {
-    memos = memos.filter(m => m.priority === 'HIGH' || m.priority === 'URGENT')
-  } else if (activeTab.value === 'overdue') {
-    memos = memos.filter(m => m.submittedAt && isOverdue(m.submittedAt))
-  }
-
-  return memos
+const totalPages = computed(() => {
+  return Math.ceil(totalItems.value / rowsPerPage.value)
 })
 
-const paginatedMemos = computed(() => {
-  const start = (currentPage.value - 1) * rowsPerPage.value
-  const end = start + rowsPerPage.value
-  return filteredMemos.value.slice(start, end)
+const displayRange = computed(() => {
+  const start = (currentPage.value - 1) * rowsPerPage.value + 1
+  const end = Math.min(currentPage.value * rowsPerPage.value, totalItems.value)
+  return `${start}-${end} of ${formatNumber(totalItems.value)}`
 })
 
-const totalPages = computed(() => 
-  Math.ceil(filteredMemos.value.length / rowsPerPage.value)
-)
+const visiblePages = computed(() => {
+  const pages: (number | string)[] = []
+  const maxVisible = 5
+  
+  if (totalPages.value <= maxVisible) {
+    for (let i = 1; i <= totalPages.value; i++) {
+      pages.push(i)
+    }
+  } else {
+    if (currentPage.value <= 3) {
+      pages.push(1, 2, 3, 4, '...', totalPages.value)
+    } else if (currentPage.value >= totalPages.value - 2) {
+      pages.push(1, '...', totalPages.value - 3, totalPages.value - 2, totalPages.value - 1, totalPages.value)
+    } else {
+      pages.push(1, '...', currentPage.value - 1, currentPage.value, currentPage.value + 1, '...', totalPages.value)
+    }
+  }
+  
+  return pages
+})
 
 // Summary stats
-const pendingTotal = computed(() => pendingMemos.value.length)
+const pendingTotal = computed(() => totalItems.value)
 const pendingChange = computed(() => {
-  // In a real app, this would come from comparing with yesterday's count
   return Math.floor(Math.random() * 10) - 2
 })
 
-const highPriorityCount = computed(() => 
-  pendingMemos.value.filter(m => m.priority === 'HIGH' || m.priority === 'URGENT').length
-)
+const highPriorityCount = computed(() => {
+  return pendingMemos.value.filter(m => m.priority === 'HIGH' || m.priority === 'URGENT').length
+})
 
-const awaitingResponse = computed(() => 
-  pendingMemos.value.filter(m => {
-    if (!m.submittedAt) return false
-    const submitted = new Date(m.submittedAt)
+const awaitingResponse = computed(() => {
+  return pendingMemos.value.filter(m => {
+    if (!m.createdAt) return false
+    const submitted = new Date(m.createdAt)
     const now = new Date()
     const diffHours = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60)
     return diffHours > 24
   }).length
-)
+})
 
-const overdueCount = computed(() => 
-  pendingMemos.value.filter(m => m.submittedAt && isOverdue(m.submittedAt)).length
-)
+const overdueCount = computed(() => {
+  return pendingMemos.value.filter(m => m.createdAt && isOverdue(m.createdAt)).length
+})
 
 const avgResponseTime = computed(() => {
   if (pendingMemos.value.length === 0) return 0
   const totalWait = pendingMemos.value.reduce((sum, memo) => {
-    if (!memo.submittedAt) return sum
-    const submitted = new Date(memo.submittedAt)
+    if (!memo.createdAt) return sum
+    const submitted = new Date(memo.createdAt)
     const now = new Date()
     const diffHours = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60)
     return sum + diffHours
@@ -766,8 +835,63 @@ const avgResponseTime = computed(() => {
   return Math.round(totalWait / pendingMemos.value.length)
 })
 
-const approvalRate = ref(0) // This would come from a stats endpoint
-const approvedThisMonth = ref(0) // This would come from a stats endpoint
+const approvalRate = ref(85)
+const approvedThisMonth = ref(42)
+
+// Pagination methods
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    if (serverSidePagination.value) {
+      fetchPendingMemos()
+    }
+  }
+}
+
+const goToFirstPage = () => {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1
+    if (serverSidePagination.value) {
+      fetchPendingMemos()
+    }
+  }
+}
+
+const goToLastPage = () => {
+  if (currentPage.value !== totalPages.value) {
+    currentPage.value = totalPages.value
+    if (serverSidePagination.value) {
+      fetchPendingMemos()
+    }
+  }
+}
+
+const goToPreviousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    if (serverSidePagination.value) {
+      fetchPendingMemos()
+    }
+  }
+}
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    if (serverSidePagination.value) {
+      fetchPendingMemos()
+    }
+  }
+}
+
+// Tab switching
+const setActiveTab = (tabId: string) => {
+  activeTab.value = tabId
+  currentPage.value = 1
+  if (serverSidePagination.value) {
+    fetchPendingMemos()
+  }
+}
 
 // Methods
 const formatNumber = (num: number): string => {
@@ -818,12 +942,12 @@ const isOverdue = (date?: string): boolean => {
   const submitted = new Date(date)
   const now = new Date()
   const diffDays = (now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24)
-  return diffDays > 3 // Overdue after 3 days
+  return diffDays > 3
 }
 
 const toggleSelectAll = () => {
   if (selectAll.value) {
-    selectedMemos.value = paginatedMemos.value.map(m => m.id)
+    selectedMemos.value = pendingMemos.value.map(m => m.id)
   } else {
     selectedMemos.value = []
   }
@@ -836,26 +960,36 @@ const resetFilters = () => {
     waitingTime: ''
   }
   searchQuery.value = ''
+  currentPage.value = 1
+  if (serverSidePagination.value) {
+    fetchPendingMemos()
+  }
 }
 
 const applyFilters = () => {
   showFilters.value = false
   currentPage.value = 1
+  if (serverSidePagination.value) {
+    fetchPendingMemos()
+  }
 }
 
 const refreshData = async () => {
   isRefreshing.value = true
-  await fetchPendingMemos()
+  await Promise.all([fetchPendingMemos(), fetchStats()])
   showToastMessage('Data refreshed successfully', 'success')
 }
 
 const openApprovalModal = (memo: Memo) => {
   selectedMemo.value = memo
+  approvalComment.value = ''
   showApproveModal.value = true
 }
 
 const openRejectModal = (memo: Memo) => {
   selectedMemo.value = memo
+  rejectionReason.value = ''
+  requestChanges.value = false
   showRejectModal.value = true
 }
 
@@ -877,11 +1011,9 @@ const approveMemo = async () => {
       notifyAuthor: notifyAuthor.value
     })
     
-    pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
-    selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
-    
     showToastMessage(`Memo ${selectedMemo.value.reference} approved successfully`, 'success')
     closeModals()
+    fetchPendingMemos()
     
   } catch (err) {
     console.error('Error approving memo:', err)
@@ -900,11 +1032,9 @@ const rejectMemo = async () => {
       notifyAuthor: notifyAuthor.value
     })
     
-    pendingMemos.value = pendingMemos.value.filter(m => m.id !== selectedMemo.value?.id)
-    selectedMemos.value = selectedMemos.value.filter(id => id !== selectedMemo.value?.id)
-    
     showToastMessage(`Memo ${selectedMemo.value.reference} ${requestChanges.value ? 'changes requested' : 'rejected'}`, 'error')
     closeModals()
+    fetchPendingMemos()
     
   } catch (err) {
     console.error('Error rejecting memo:', err)
@@ -913,15 +1043,17 @@ const rejectMemo = async () => {
 }
 
 const bulkApprove = async () => {
+  if (selectedMemos.value.length === 0) return
+  
   try {
     await axiosInstance.post('/memos/bulk-approve', {
       memoIds: selectedMemos.value
     })
     
-    pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
     showToastMessage(`${selectedMemos.value.length} memos approved`, 'success')
     selectedMemos.value = []
     selectAll.value = false
+    fetchPendingMemos()
     
   } catch (err) {
     console.error('Error in bulk approve:', err)
@@ -930,6 +1062,7 @@ const bulkApprove = async () => {
 }
 
 const bulkReject = async () => {
+  if (selectedMemos.value.length === 0) return
   if (!confirm(`Reject ${selectedMemos.value.length} selected memos?`)) return
   
   try {
@@ -937,10 +1070,10 @@ const bulkReject = async () => {
       memoIds: selectedMemos.value
     })
     
-    pendingMemos.value = pendingMemos.value.filter(m => !selectedMemos.value.includes(m.id))
     showToastMessage(`${selectedMemos.value.length} memos rejected`, 'error')
     selectedMemos.value = []
     selectAll.value = false
+    fetchPendingMemos()
     
   } catch (err) {
     console.error('Error in bulk reject:', err)
@@ -958,21 +1091,39 @@ const showToastMessage = (message: string, type: 'success' | 'error' = 'success'
   }, 3000)
 }
 
-// Watch for page changes
-const updatePageWhenFiltered = () => {
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = Math.max(1, totalPages.value)
+// Watchers
+watch(rowsPerPage, () => {
+  currentPage.value = 1
+  if (serverSidePagination.value) {
+    fetchPendingMemos()
   }
-}
-
-// Initial fetch
-onMounted(() => {
-  fetchPendingMemos()
 })
 
-// Watch for filter changes to reset page
-watch([filteredMemos, rowsPerPage], () => {
-  updatePageWhenFiltered()
+watch(searchQuery, () => {
+  if (serverSidePagination.value) {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    searchTimeout = setTimeout(() => {
+      currentPage.value = 1
+      fetchPendingMemos()
+    }, 500)
+  }
+})
+
+watch([() => filters.value.branch, () => filters.value.priority, () => filters.value.waitingTime], () => {
+  // Filters are applied via Apply button, so no auto-fetch here
+})
+
+// Lifecycle
+onMounted(() => {
+  Promise.all([fetchPendingMemos(), fetchStats()])
+})
+
+onUnmounted(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 

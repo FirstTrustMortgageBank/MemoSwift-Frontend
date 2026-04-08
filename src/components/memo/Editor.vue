@@ -445,6 +445,8 @@ const footerFields = ref({
     { name: 'Ugochukwu Alagbu', role: 'IT Department' },
     { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
   ],
+  opex: '',
+  capex: '',
   monthlyBudget: '',
   monthlyExpense: '',
   monthlyBalance: '',
@@ -577,8 +579,35 @@ const checkForDraft = () => {
           fontSize.value = draft.metadata.fontSize || 12
           lineHeight.value = draft.metadata.lineHeight || '1.5'
         }
-        // Restore footer fields if saved
-        if (draft.footerFields) footerFields.value = draft.footerFields
+        // Restore footer fields if saved - merge with defaults to ensure all fields exist
+        if (draft.footerFields) {
+          footerFields.value = {
+            signatories: [
+              { name: 'Ugochukwu Alagbu', role: 'IT Department' },
+              { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
+            ],
+            opex: '',
+            capex: '',
+            monthlyBudget: '',
+            monthlyExpense: '',
+            monthlyBalance: '',
+            annualBudget: '',
+            annualExpense: '',
+            annualBalance: '',
+            fincon: '',
+            signature: '',
+            finconDate: '',
+            comments: '',
+            concurrence: [
+              { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
+              { name: 'John Odey', role: 'Executive Director, General Services' }
+            ],
+            approvedBy: [
+              { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
+            ],
+            ...draft.footerFields // Override with saved values
+          }
+        }
         lastSavedContent.value = draft.content
         lastSavedTitle.value = draft.title
         lastSavedFooterFields.value = { ...footerFields.value }
@@ -665,6 +694,8 @@ const fetchMemo = async (id) => {
             { name: 'Ugochukwu Alagbu', role: 'IT Department' },
             { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
           ],
+          opex: saved.opex || '',
+          capex: saved.capex || '',
           monthlyBudget: saved.monthlyBudget || '',
           monthlyExpense: saved.monthlyExpense || '',
           monthlyBalance: saved.monthlyBalance || '',
@@ -909,6 +940,8 @@ const loadDocxFromFile = async (file) => {
         { name: 'Ugochukwu Alagbu', role: 'IT Department' },
         { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
       ],
+      opex: '',
+      capex: '',
       monthlyBudget: '',
       monthlyExpense: '',
       monthlyBalance: '',
@@ -992,6 +1025,8 @@ const loadDocxTemplate = async (fileUrl) => {
         { name: 'Ugochukwu Alagbu', role: 'IT Department' },
         { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
       ],
+      opex: '',
+      capex: '',
       monthlyBudget: '',
       monthlyExpense: '',
       monthlyBalance: '',
@@ -1046,6 +1081,8 @@ const handleNew = () => {
       { name: 'Ugochukwu Alagbu', role: 'IT Department' },
       { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
     ],
+    opex: '',
+    capex: '',
     monthlyBudget: '',
     monthlyExpense: '',
     monthlyBalance: '',

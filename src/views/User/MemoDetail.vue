@@ -72,7 +72,7 @@
             Reject
           </button>
           
-          <!-- Send to Next Approver button -->
+          <!-- Send to Next Approver button - Updated for multi-step workflow -->
           <button 
             v-if="canSendToNextApprover"
             @click="openApproverModal" 
@@ -82,7 +82,7 @@
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
-            Send to Next Approver
+            {{ sendButtonText }}
           </button>
           
           <button 
@@ -145,7 +145,7 @@
             <div class="history-content">
               <div class="history-title">
                 <strong>{{ item.actorName || item.user?.name || 'Unknown' }}</strong>
-                <span class="history-action">{{ item.action }}</span>
+                <span class="history-action">{{ formatAction(item.action) }}</span>
                 <span class="history-time">{{ formatDateTime(item.createdAt) }}</span>
               </div>
               <div v-if="item.comment" class="history-comment">
@@ -220,7 +220,7 @@
              }">
           <div class="document-content" v-html="memo.content"></div>
           
-          <!-- Memo Footer Section - Updated to match new structure -->
+          <!-- Memo Footer Section -->
           <div class="memo-footer-divider"></div>
           <div class="memo-footer">
             <!-- Signatory Row -->
@@ -289,18 +289,6 @@
                 <div class="opex-value opex-value--wide">{{ memo.metadata?.footerFields?.comments || '_________________________' }}</div>
               </div>
             </div>
-
-            <!-- Concurrence Section -->
-            <!-- <div class="concurrence-section">
-              <div class="concurrence-title">Concurrence:</div>
-              <div class="signoff-block" v-for="(person, idx) in (memo.metadata?.footerFields?.concurrence || [])" :key="'c' + idx">
-                <div class="signoff-name-line">
-                  <span class="signoff-name">{{ person.name || '_________________________' }}</span>
-                  <span class="signoff-line"></span>
-                </div>
-                <div class="signoff-role">{{ person.role || '_________________________' }}</div>
-              </div>
-            </div> -->
 
             <!-- Approved By Section -->
             <div class="approved-section">
@@ -672,7 +660,6 @@ const getCurrentUser = () => {
   }
 }
 
-// Define getInitials
 const getInitials = (name) => {
   if (!name) return 'U'
   return name
@@ -739,26 +726,29 @@ const isCurrentApprover = computed(() => {
   return memo.value.currentApproverId === currentUserId && memo.value.status === 'PENDING_APPROVAL'
 })
 
-const canSendToNextApprover = computed(() => {  
+// UPDATED: Multi-step approval workflow - allows author to send to next approver after one approves
+const canSendToNextApprover = computed(() => {
+  // Only the author can send for approval
   if (memo.value.authorId !== currentUserId) return false
   
-  if (memo.value.status !== 'APPROVED') return false
+  // Cannot send if rejected
+  if (memo.value.status === 'REJECTED') return false
   
-  if (approvalHistory.value.length === 0) return false
+  // If it's a draft, author can send for first approval
+  if (memo.value.status === 'DRAFT') return true
   
-  const sortedHistory = [...approvalHistory.value].sort((a, b) => 
-    new Date(b.createdAt) - new Date(a.createdAt)
-  )
+  // If status is APPROVED, author can send to next approver
+  if (memo.value.status === 'APPROVED') return true
   
-  const lastAction = sortedHistory[0]
-  
-  if (lastAction?.action !== 'APPROVED') return false
-  
-  if (memo.value.authorId === currentUserId && memo.value.currentApproverId === currentUserId) {
-    return lastAction.userId === currentUserId
-  }
-  
-  return lastAction.userId === memo.value.currentApproverId
+  // If status is PENDING_APPROVAL, author cannot send (must wait for current approver)
+  return false
+})
+
+// Dynamic text for send button
+const sendButtonText = computed(() => {
+  if (memo.value.status === 'DRAFT') return 'Send for Approval'
+  if (memo.value.status === 'APPROVED') return 'Send to Next Approver'
+  return 'Send to Next Approver'
 })
 
 const approvalStatusClass = computed(() => {
@@ -798,6 +788,16 @@ const formatStatus = (status) => {
     'REJECTED': 'Rejected'
   }
   return statusMap[status] || status
+}
+
+const formatAction = (action) => {
+  const actionMap = {
+    'SENT_FOR_APPROVAL': 'Sent for Approval',
+    'APPROVED': 'Approved',
+    'REJECTED': 'Rejected',
+    'COMMENT_ADDED': 'Commented'
+  }
+  return actionMap[action] || action
 }
 
 const formatDate = (dateString) => {
@@ -863,13 +863,20 @@ const fetchApprovers = async () => {
     
     const usersData = response.data?.data?.data || []
     
+    // Get IDs of users who have already approved this memo
+    const alreadyApprovedIds = approvalHistory.value
+      .filter(item => item.action === 'APPROVED')
+      .map(item => item.userId)
+    
     approversList.value = usersData.map(user => ({
       id: user.id,
       name: user.username,
       role: user.role || 'Staff',
       department: user.department || 'General',
       email: user.email
-    })).filter(user => user.id !== currentUserId)
+    })).filter(user => 
+      user.id !== currentUserId && !alreadyApprovedIds.includes(user.id)
+    )
     
   } catch (error) {
     console.error('Error fetching approvers:', error)
@@ -948,6 +955,8 @@ const fetchMemo = async (id) => {
     })
     
     const memoData = response.data?.data || response.data
+
+    console.log('Memo data:', memoData)
     
     memo.value = {
       ...memoData,
@@ -989,6 +998,7 @@ const approveMemo = async () => {
       { headers: getAuthHeader() }
     )
     
+    // After approval, status becomes APPROVED (ready for next step)
     memo.value.status = 'APPROVED'
     showApproveModal.value = false
     await fetchApprovalHistory()
@@ -1037,33 +1047,28 @@ const downloadAttachment = async (file) => {
   try {
     console.log('Downloading attachment:', file.filename)
     
-    // Use the storageUrl from the attachment
-    const downloadUrl = file.storageUrl
+    const filePath = file.storagePath
+    const downloadUrl = `${API_BASE_URL}/memos/files/${filePath}`
     
-    if (!downloadUrl) {
-      showToastMessage('Download URL not available', 'error')
-      return
-    }
-    
-    // Method 1: Open in new tab (for PDFs and images that can be viewed)
-    // window.open(downloadUrl, '_blank')
-    
-    // Method 2: Force download using fetch
     const response = await fetch(downloadUrl, {
-      headers: getAuthHeader()
+      headers: {
+        ...getAuthHeader(),
+      }
     })
     
     if (!response.ok) {
-      throw new Error('Download failed')
+      if (response.status === 404) {
+        throw new Error('File not found')
+      }
+      throw new Error(`Download failed: ${response.statusText}`)
     }
     
     const blob = await response.blob()
     
-    // Create a download link
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = file.originalName || file.filename
+    link.download = file.originalName || file.filename.split('/').pop()
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -1072,7 +1077,7 @@ const downloadAttachment = async (file) => {
     showToastMessage(`Downloading ${file.originalName || file.filename}`, 'success')
   } catch (error) {
     console.error('Error downloading attachment:', error)
-    showToastMessage('Failed to download attachment', 'error')
+    showToastMessage(error.message || 'Failed to download attachment', 'error')
   }
 }
 
@@ -1160,7 +1165,6 @@ const deleteComment = async (commentId) => {
   }
 }
 
-// Calculate word count from content
 const calculateWordCount = () => {
   if (!memo.value.content) return
   const text = memo.value.content.replace(/<[^>]*>/g, ' ')
