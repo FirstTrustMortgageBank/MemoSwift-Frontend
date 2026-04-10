@@ -310,6 +310,17 @@
         class="document-page"
         :style="{ fontFamily, fontSize: fontSize + 'px', lineHeight }"
       >
+        <div class="memo-header">
+          <!-- Bank Logo and INTERNAL USE ONLY on same line -->
+          <div class="bank-header">
+            <div class="bank-logo">
+              <img src="/FirstTrust.png" alt="FirstTrust Logo" class="logo-image" />
+            </div>
+            <div class="internal-use-wrapper">
+              <h1 class="internal-use-text">INTERNAL USE ONLY</h1>
+            </div>
+          </div>
+        </div>
         <!-- Tiptap editor (memo body) -->
         <editor-content v-if="editor" :editor="editor" class="editor-content" />
         <div v-else class="editor-placeholder"><p>Loading document...</p></div>
@@ -1488,7 +1499,59 @@ onUnmounted(() => {
   max-width: 100%;
 }
 .dark .document-page { background-color: var(--color-gray-900); box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+/* FirstTrust Memo Header Styles */
+.memo-header {
+  margin-bottom: 1.5rem;
+}
 
+/* Bank Header with Logo - Flexbox for left/right alignment */
+.bank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;  /* This pushes logo left and text right */
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #004080;
+}
+
+.bank-logo {
+  width: 160px;
+  height: 160px;
+  flex-shrink: 0;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* INTERNAL USE ONLY - Right aligned */
+.internal-use-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.internal-use-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: gray;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.dark .internal-use-text {
+  color: #E57373;
+  border-color: #E57373;
+  background-color: #4A2A2A;
+}
 /* Divider between editor body and footer */
 .memo-footer-divider {
   border: none;
