@@ -158,7 +158,7 @@
                 Approved by: {{ item.actorName || item.userName || item.user?.name }}
               </div>
               <div v-else-if="item.action === 'REJECTED'" class="history-details">
-                Rejected by: {{ item.rejectorName || item.userName || item.user?.name }}
+                Rejected by: {{ item.actorName || item.userName || item.user?.name }}
               </div>
             </div>
           </div>
@@ -552,8 +552,18 @@
           </div>
           
           <div class="modal-footer">
-            <button @click="showApproveModal = false" class="cancel-btn">Cancel</button>
-            <button @click="approveMemo" class="send-btn">Approve</button>
+            <button @click="showApproveModal = false" class="cancel-btn" :disabled="isApproving">Cancel</button>
+            <button 
+              @click="approveMemo" 
+              class="send-btn"
+              :disabled="isApproving"
+            >
+              <svg v-if="isApproving" class="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isApproving ? 'Approving...' : 'Approve' }}
+            </button>
           </div>
         </div>
       </div>
@@ -588,13 +598,17 @@
           </div>
           
           <div class="modal-footer">
-            <button @click="showRejectModal = false" class="cancel-btn">Cancel</button>
+            <button @click="showRejectModal = false" class="cancel-btn" :disabled="isRejecting">Cancel</button>
             <button 
               @click="rejectMemo" 
-              :disabled="!rejectionReason.trim()"
+              :disabled="!rejectionReason.trim() || isRejecting"
               class="send-btn reject"
             >
-              Reject
+              <svg v-if="isRejecting" class="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRejecting ? 'Rejecting...' : 'Reject' }}
             </button>
           </div>
         </div>
@@ -640,6 +654,8 @@ const priority = ref('MEDIUM')
 const dueDate = ref('')
 const approverMessage = ref('')
 const notifyByEmail = ref(true)
+const isApproving = ref(false)
+const isRejecting = ref(false)
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:3000/api/v1'
@@ -991,7 +1007,9 @@ const fetchMemo = async (id) => {
 }
 
 const approveMemo = async () => {
+  if (isApproving.value) return
   try {
+    isApproving.value = true
     await axios.post(
       `${API_BASE_URL}/memos/${memoId}/approve`,
       { comment: approvalComment.value },
@@ -1009,13 +1027,16 @@ const approveMemo = async () => {
   } catch (err) {
     console.error('Error approving memo:', err)
     showToastMessage('Failed to approve memo', 'error')
+  } finally {
+    isApproving.value = false
   }
 }
 
 const rejectMemo = async () => {
-  if (!rejectionReason.value.trim()) return
+  if (!rejectionReason.value.trim() || isRejecting.value) return
   
   try {
+    isRejecting.value = true
     await axios.post(
       `${API_BASE_URL}/memos/${memoId}/reject`,
       { reason: rejectionReason.value },
@@ -1032,6 +1053,8 @@ const rejectMemo = async () => {
   } catch (err) {
     console.error('Error rejecting memo:', err)
     showToastMessage('Failed to reject memo', 'error')
+  } finally {
+    isRejecting.value = false
   }
 }
 
@@ -2837,5 +2860,22 @@ onMounted(() => {
     flex-direction: column;
     gap: 0.5rem;
   }
+}
+/* Spinner Animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+/* Disabled button styles */
+.send-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 </style>
