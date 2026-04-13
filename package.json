@@ -42,6 +42,8 @@
     "axios": "^1.13.6",
     "dropzone": "^6.0.0-beta.2",
     "flatpickr": "^4.6.13",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "jsvectormap": "^1.6.0",
     "lodash-es": "^4.17.23",
     "lucide-vue-next": "^0.474.0",

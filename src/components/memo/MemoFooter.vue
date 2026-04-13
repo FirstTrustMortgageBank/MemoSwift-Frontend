@@ -3,7 +3,7 @@
 
     <!-- Signatory Row -->
     <div class="signatory-row">
-      <div class="signatory" v-for="(sig, i) in fields.signatories" :key="i">
+      <div class="signatory" v-for="(sig, i) in fields.signatories" :key="'sig-' + i">
         <input
           v-model="sig.name"
           class="footer-input footer-input--bold"
@@ -79,7 +79,7 @@
     </div>
 
     <!-- Concurrence Section -->
-    <!-- <div class="concurrence-section">
+    <div class="concurrence-section">
       <div class="concurrence-title">Concurrence:</div>
 
       <div class="signoff-block" v-for="(person, i) in fields.concurrence" :key="'c' + i">
@@ -102,7 +102,7 @@
       </div>
 
       <button class="add-btn" @click="addConcurrence">+ Add Concurrence</button>
-    </div> -->
+    </div>
 
     <!-- Approved By Section -->
     <div class="approved-section">
@@ -145,9 +145,11 @@ const props = defineProps({
 
 const emit = defineEmits(['update', 'update:modelValue'])
 
-// Default structure with template values from the Mammoth DOCX template
+// Default structure with proper signatories array
 const defaultFields = () => ({
   signatories: [
+    { name: 'Name', role: 'Role' },
+    { name: 'Name', role: 'Role' }
   ],
   monthlyBudget:  '',
   monthlyExpense: '',
@@ -168,55 +170,74 @@ const defaultFields = () => ({
   ],
 })
 
-// Merge any saved values over the defaults
+// Helper function to deeply merge saved data with defaults
 const merge = (saved) => {
   const def = defaultFields()
-  if (!saved || Object.keys(saved).length === 0) return def
+  
+  // If no saved data, return defaults
+  if (!saved || Object.keys(saved).length === 0) {
+    return JSON.parse(JSON.stringify(def))
+  }
+  
+  // Helper to ensure arrays are properly merged
+  const mergeArray = (savedArr, defaultArr) => {
+    if (!savedArr || !Array.isArray(savedArr) || savedArr.length === 0) {
+      return JSON.parse(JSON.stringify(defaultArr))
+    }
+    // Deep clone the saved array to preserve all properties
+    return savedArr.map(item => ({
+      name: item.name || '',
+      role: item.role || ''
+    }))
+  }
   
   return {
-    ...def,
-    ...saved,
-    signatories: saved.signatories && saved.signatories.length ? saved.signatories : def.signatories,
-    concurrence: saved.concurrence && saved.concurrence.length ? saved.concurrence : def.concurrence,
-    approvedBy:  saved.approvedBy && saved.approvedBy.length ? saved.approvedBy : def.approvedBy,
-    // Ensure all numeric fields are properly handled
+    signatories: mergeArray(saved.signatories, def.signatories),
+    concurrence: mergeArray(saved.concurrence, def.concurrence),
+    approvedBy: mergeArray(saved.approvedBy, def.approvedBy),
+    // String fields
     monthlyBudget: saved.monthlyBudget !== undefined ? saved.monthlyBudget : def.monthlyBudget,
     monthlyExpense: saved.monthlyExpense !== undefined ? saved.monthlyExpense : def.monthlyExpense,
     monthlyBalance: saved.monthlyBalance !== undefined ? saved.monthlyBalance : def.monthlyBalance,
     annualBudget: saved.annualBudget !== undefined ? saved.annualBudget : def.annualBudget,
     annualExpense: saved.annualExpense !== undefined ? saved.annualExpense : def.annualExpense,
     annualBalance: saved.annualBalance !== undefined ? saved.annualBalance : def.annualBalance,
+    fincon: saved.fincon !== undefined ? saved.fincon : def.fincon,
+    signature: saved.signature !== undefined ? saved.signature : def.signature,
+    finconDate: saved.finconDate !== undefined ? saved.finconDate : def.finconDate,
+    comments: saved.comments !== undefined ? saved.comments : def.comments,
   }
 }
 
 const fields = reactive(merge(props.modelValue))
 
-// Helper function to format numbers as currency
-const formatCurrency = (value) => {
-  if (!value) return ''
-  const num = parseFloat(value)
-  if (isNaN(num)) return value
-  return num.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-// Helper function to parse currency input
-const parseCurrency = (value) => {
-  if (!value) return ''
-  const cleaned = value.toString().replace(/[^0-9.-]/g, '')
-  return cleaned
-}
-
 // Watch for external updates from parent (e.g., when loading a memo)
 watch(
   () => props.modelValue,
-  (val) => {
-    if (val && Object.keys(val).length > 0) {
-      const merged = merge(val)
-      Object.keys(merged).forEach(key => {
-        if (fields[key] !== merged[key]) {
-          fields[key] = merged[key]
-        }
-      })
+  (newVal) => {
+    if (newVal && Object.keys(newVal).length > 0) {
+      const merged = merge(newVal)
+      
+      // Update signatories
+      fields.signatories = merged.signatories
+      
+      // Update concurrence
+      fields.concurrence = merged.concurrence
+      
+      // Update approvedBy
+      fields.approvedBy = merged.approvedBy
+      
+      // Update string fields
+      fields.monthlyBudget = merged.monthlyBudget
+      fields.monthlyExpense = merged.monthlyExpense
+      fields.monthlyBalance = merged.monthlyBalance
+      fields.annualBudget = merged.annualBudget
+      fields.annualExpense = merged.annualExpense
+      fields.annualBalance = merged.annualBalance
+      fields.fincon = merged.fincon
+      fields.signature = merged.signature
+      fields.finconDate = merged.finconDate
+      fields.comments = merged.comments
     }
   },
   { deep: true, immediate: true }
@@ -224,9 +245,20 @@ watch(
 
 // Emit updates to parent component
 const emitUpdate = () => {
+  // Create a clean copy of the fields
   const cleanFields = {
-    ...fields,
-    // Clean up any empty values to keep storage clean
+    signatories: fields.signatories.map(s => ({
+      name: s.name || '',
+      role: s.role || ''
+    })),
+    concurrence: fields.concurrence.map(c => ({
+      name: c.name || '',
+      role: c.role || ''
+    })),
+    approvedBy: fields.approvedBy.map(a => ({
+      name: a.name || '',
+      role: a.role || ''
+    })),
     monthlyBudget: fields.monthlyBudget || '',
     monthlyExpense: fields.monthlyExpense || '',
     monthlyBalance: fields.monthlyBalance || '',
@@ -247,15 +279,15 @@ const emitUpdate = () => {
 const calculateBalances = () => {
   // Calculate monthly balance
   if (fields.monthlyBudget && fields.monthlyExpense) {
-    const budget = parseFloat(fields.monthlyBudget) || 0
-    const expense = parseFloat(fields.monthlyExpense) || 0
+    const budget = parseFloat(fields.monthlyBudget.replace(/,/g, '')) || 0
+    const expense = parseFloat(fields.monthlyExpense.replace(/,/g, '')) || 0
     fields.monthlyBalance = (budget - expense).toString()
   }
   
   // Calculate annual balance
   if (fields.annualBudget && fields.annualExpense) {
-    const budget = parseFloat(fields.annualBudget) || 0
-    const expense = parseFloat(fields.annualExpense) || 0
+    const budget = parseFloat(fields.annualBudget.replace(/,/g, '')) || 0
+    const expense = parseFloat(fields.annualExpense.replace(/,/g, '')) || 0
     fields.annualBalance = (budget - expense).toString()
   }
   
@@ -303,12 +335,28 @@ const removeApprover = (i) => {
 // Expose methods for parent component if needed
 defineExpose({
   calculateBalances,
-  getFields: () => ({ ...fields }),
+  getFields: () => {
+    const fieldsCopy = { ...fields }
+    fieldsCopy.signatories = [...fields.signatories]
+    fieldsCopy.concurrence = [...fields.concurrence]
+    fieldsCopy.approvedBy = [...fields.approvedBy]
+    return fieldsCopy
+  },
   resetToDefaults: () => {
     const defaults = defaultFields()
-    Object.keys(defaults).forEach(key => {
-      fields[key] = defaults[key]
-    })
+    fields.signatories = defaults.signatories.map(s => ({ ...s }))
+    fields.concurrence = defaults.concurrence.map(c => ({ ...c }))
+    fields.approvedBy = defaults.approvedBy.map(a => ({ ...a }))
+    fields.monthlyBudget = defaults.monthlyBudget
+    fields.monthlyExpense = defaults.monthlyExpense
+    fields.monthlyBalance = defaults.monthlyBalance
+    fields.annualBudget = defaults.annualBudget
+    fields.annualExpense = defaults.annualExpense
+    fields.annualBalance = defaults.annualBalance
+    fields.fincon = defaults.fincon
+    fields.signature = defaults.signature
+    fields.finconDate = defaults.finconDate
+    fields.comments = defaults.comments
     emitUpdate()
   }
 })

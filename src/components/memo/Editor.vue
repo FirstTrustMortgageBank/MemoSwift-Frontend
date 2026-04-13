@@ -107,12 +107,12 @@
             <textarea v-model="approverMessage" placeholder="Add any notes or instructions for the approver..." rows="3" class="message-input"></textarea>
           </div>
           
-          <div class="form-group">
+          <!-- <div class="form-group">
             <label class="checkbox-label">
               <input type="checkbox" v-model="notifyByEmail">
               Notify approver by email
             </label>
-          </div>
+          </div> -->
         </div>
         
         <div class="modal-footer">
@@ -453,8 +453,8 @@ const attachmentInput = ref(null)
 // Footer fields state - initialize with default values
 const footerFields = ref({
   signatories: [
-    { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-    { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
+    { name: 'Name', role: 'Role' },
+    { name: 'Name', role: 'Role' }
   ],
   opex: '',
   capex: '',
@@ -469,11 +469,11 @@ const footerFields = ref({
   finconDate: '',
   comments: '',
   concurrence: [
-    { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-    { name: 'John Odey', role: 'Executive Director, General Services' }
+    { name: 'Name', role: 'Role' },
+    { name: 'Name', role: 'Role' }
   ],
   approvedBy: [
-    { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
+    { name: 'Name', role: 'Role' }
   ]
 })
 
@@ -559,8 +559,8 @@ const handleAutoSave = async () => {
 
 // Footer update handler
 const handleFooterUpdate = (fields) => {
-  footerFields.value = fields
-  // Footer changes count as unsaved changes too
+  // Create a new object to ensure Vue detects the change
+  footerFields.value = JSON.parse(JSON.stringify(fields))
   hasUnsavedChanges.value = true
   scheduleAutoSave()
 }
@@ -590,38 +590,28 @@ const checkForDraft = () => {
           fontSize.value = draft.metadata.fontSize || 12
           lineHeight.value = draft.metadata.lineHeight || '1.5'
         }
-        // Restore footer fields if saved - merge with defaults to ensure all fields exist
+        // Restore footer fields if saved - deep merge with defaults
         if (draft.footerFields) {
+          const defaults = getDefaultFooterFields()
+          // Ensure all arrays and nested objects are properly restored
           footerFields.value = {
-            signatories: [
-              { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-              { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
-            ],
-            opex: '',
-            capex: '',
-            monthlyBudget: '',
-            monthlyExpense: '',
-            monthlyBalance: '',
-            annualBudget: '',
-            annualExpense: '',
-            annualBalance: '',
-            fincon: '',
-            signature: '',
-            finconDate: '',
-            comments: '',
-            concurrence: [
-              { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-              { name: 'John Odey', role: 'Executive Director, General Services' }
-            ],
-            approvedBy: [
-              { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
-            ],
-            ...draft.footerFields // Override with saved values
+            ...defaults,
+            ...draft.footerFields,
+            // Ensure arrays are properly merged (not overwritten with empty arrays)
+            signatories: draft.footerFields.signatories?.length 
+              ? draft.footerFields.signatories 
+              : defaults.signatories,
+            concurrence: draft.footerFields.concurrence?.length 
+              ? draft.footerFields.concurrence 
+              : defaults.concurrence,
+            approvedBy: draft.footerFields.approvedBy?.length 
+              ? draft.footerFields.approvedBy 
+              : defaults.approvedBy,
           }
         }
         lastSavedContent.value = draft.content
         lastSavedTitle.value = draft.title
-        lastSavedFooterFields.value = { ...footerFields.value }
+        lastSavedFooterFields.value = JSON.parse(JSON.stringify(footerFields.value))
         hasUnsavedChanges.value = false
       } else {
         localStorage.removeItem('memo_draft_id')
@@ -698,33 +688,19 @@ const fetchMemo = async (id) => {
       lineHeight.value = memo.metadata.lineHeight || '1.5'
       
       // Restore footer fields - use the new structure
-      if (memo.metadata.footerFields) {
+      if (memo.metadata?.footerFields) {
         const saved = memo.metadata.footerFields
+        const defaults = getDefaultFooterFields()
         footerFields.value = {
-          signatories: saved.signatories || [
-            { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-            { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
-          ],
-          opex: saved.opex || '',
-          capex: saved.capex || '',
-          monthlyBudget: saved.monthlyBudget || '',
-          monthlyExpense: saved.monthlyExpense || '',
-          monthlyBalance: saved.monthlyBalance || '',
-          annualBudget: saved.annualBudget || '',
-          annualExpense: saved.annualExpense || '',
-          annualBalance: saved.annualBalance || '',
-          fincon: saved.fincon || '',
-          signature: saved.signature || '',
-          finconDate: saved.finconDate || '',
-          comments: saved.comments || '',
-          concurrence: saved.concurrence || [
-            { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-            { name: 'John Odey', role: 'Executive Director, General Services' }
-          ],
-          approvedBy: saved.approvedBy || [
-            { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
-          ]
+          ...defaults,
+          ...saved,
+          // Ensure arrays are properly restored
+          signatories: saved.signatories?.length ? saved.signatories : defaults.signatories,
+          concurrence: saved.concurrence?.length ? saved.concurrence : defaults.concurrence,
+          approvedBy: saved.approvedBy?.length ? saved.approvedBy : defaults.approvedBy,
         }
+      } else {
+        footerFields.value = getDefaultFooterFields()
       }
     }
     
@@ -945,35 +921,12 @@ const loadDocxFromFile = async (file) => {
     memoReference.value = ''
     memoAttachments.value = []
     
-    // Reset footer for new file with the new structure
-    footerFields.value = {
-      signatories: [
-        { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-        { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
-      ],
-      opex: '',
-      capex: '',
-      monthlyBudget: '',
-      monthlyExpense: '',
-      monthlyBalance: '',
-      annualBudget: '',
-      annualExpense: '',
-      annualBalance: '',
-      fincon: '',
-      signature: '',
-      finconDate: '',
-      comments: '',
-      concurrence: [
-        { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-        { name: 'John Odey', role: 'Executive Director, General Services' }
-      ],
-      approvedBy: [
-        { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
-      ]
-    }
+    // Use the helper function
+    footerFields.value = getDefaultFooterFields()
+    
     lastSavedContent.value = html
     lastSavedTitle.value = memoTitle.value
-    lastSavedFooterFields.value = { ...footerFields.value }
+    lastSavedFooterFields.value = JSON.parse(JSON.stringify(footerFields.value))
     showToastMessage('File loaded successfully', 'success')
   } catch (error) {
     console.error('Error loading DOCX file:', error)
@@ -1030,33 +983,9 @@ const loadDocxTemplate = async (fileUrl) => {
     lastSavedContent.value = html
     lastSavedTitle.value = 'New Memo'
     
-    // Reset footer fields for new document with the new structure
-    footerFields.value = {
-      signatories: [
-        { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-        { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
-      ],
-      opex: '',
-      capex: '',
-      monthlyBudget: '',
-      monthlyExpense: '',
-      monthlyBalance: '',
-      annualBudget: '',
-      annualExpense: '',
-      annualBalance: '',
-      fincon: '',
-      signature: '',
-      finconDate: '',
-      comments: '',
-      concurrence: [
-        { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-        { name: 'John Odey', role: 'Executive Director, General Services' }
-      ],
-      approvedBy: [
-        { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
-      ]
-    }
-    lastSavedFooterFields.value = { ...footerFields.value }
+    // Use the helper function
+    footerFields.value = getDefaultFooterFields()
+    lastSavedFooterFields.value = JSON.parse(JSON.stringify(footerFields.value))
   } catch (error) {
     console.error('Error loading DOCX template:', error)
     showToastMessage('Error loading template', 'error')
@@ -1078,6 +1007,32 @@ const toggleMenu = (menu) => {
   activeMenu.value = activeMenu.value === menu ? null : menu 
 }
 
+const getDefaultFooterFields = () => ({
+  signatories: [
+    { name: 'Name', role: 'Role' },
+    { name: 'Name', role: 'Role' }
+  ],
+  opex: '',
+  capex: '',
+  monthlyBudget: '',
+  monthlyExpense: '',
+  monthlyBalance: '',
+  annualBudget: '',
+  annualExpense: '',
+  annualBalance: '',
+  fincon: '',
+  signature: '',
+  finconDate: '',
+  comments: '',
+  concurrence: [
+    { name: 'Name', role: 'Role' },
+    { name: 'Name', role: 'Role' }
+  ],
+  approvedBy: [
+    { name: 'Name', role: 'Role' }
+  ]
+})
+
 const handleNew = () => {
   if (hasUnsavedChanges.value && !confirm('Clear current memo and start a new one? Unsaved changes will be lost.')) return
   editor.value?.commands.setContent('<p>Start typing your memo here...</p>')
@@ -1087,35 +1042,14 @@ const handleNew = () => {
   currentApprovalStatus.value = 'Draft'
   currentApprover.value = ''
   memoAttachments.value = []
-  footerFields.value = {
-    signatories: [
-      { name: 'Ugochukwu Alagbu', role: 'IT Department' },
-      { name: 'Yemi Ogundare', role: 'Ag Head, IT Department' }
-    ],
-    opex: '',
-    capex: '',
-    monthlyBudget: '',
-    monthlyExpense: '',
-    monthlyBalance: '',
-    annualBudget: '',
-    annualExpense: '',
-    annualBalance: '',
-    fincon: '',
-    signature: '',
-    finconDate: '',
-    comments: '',
-    concurrence: [
-      { name: 'Michael Olubunmi Asalu', role: 'Group Head, General Services' },
-      { name: 'John Odey', role: 'Executive Director, General Services' }
-    ],
-    approvedBy: [
-      { name: 'Korede Adedayo', role: 'Managing Director/CEO' }
-    ]
-  }
+  
+  // Use the helper function
+  footerFields.value = getDefaultFooterFields()
+  
   router.replace({ params: {} })
   lastSavedContent.value = ''
   lastSavedTitle.value = 'New Memo'
-  lastSavedFooterFields.value = { ...footerFields.value }
+  lastSavedFooterFields.value = JSON.parse(JSON.stringify(footerFields.value))
   hasUnsavedChanges.value = false
   clearDraft()
   activeMenu.value = null
@@ -1235,6 +1169,10 @@ watch([hasUnsavedChanges, memoId], () => {
   if (hasUnsavedChanges.value && memoId.value) saveDraftToLocal()
   else if (!hasUnsavedChanges.value && memoId.value) clearDraft()
 })
+watch(footerFields, () => {
+  hasUnsavedChanges.value = true
+  scheduleAutoSave()
+}, { deep: true })
 
 // Lifecycle
 onMounted(() => {

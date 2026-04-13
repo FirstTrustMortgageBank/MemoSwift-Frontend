@@ -42,73 +42,94 @@
         </div>
         
         <div class="header-actions">
-          <!-- Approval Workflow Buttons -->
-          <div class="approval-badge" :class="approvalStatusClass">
-            <span class="status-dot"></span>
-            {{ formatStatus(memo.status) }}
-          </div>
+          <!-- Show Save/Cancel when editing -->
+          <template v-if="isEditing">
+            <button @click="saveChanges" class="action-btn primary" :disabled="isSaving">
+              <svg v-if="!isSaving" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M19 10H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2z"/>
+                <path d="M7 10V7a5 5 0 0110 0v3"/>
+              </svg>
+              <svg v-else class="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isSaving ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <button @click="cancelEditing" class="action-btn secondary" :disabled="isSaving">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Cancel
+            </button>
+          </template>
           
-          <!-- Show Approve/Reject buttons only if user is the current approver -->
-          <button 
-            v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
-            @click="showApproveModal = true" 
-            class="action-btn primary"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            Approve
-          </button>
-          
-          <button 
-            v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
-            @click="showRejectModal = true" 
-            class="action-btn secondary"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            Reject
-          </button>
-          
-          <!-- Send to Next Approver button - Updated for multi-step workflow -->
-          <button 
-            v-if="canSendToNextApprover"
-            @click="openApproverModal" 
-            class="action-btn primary"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            {{ sendButtonText }}
-          </button>
-          
-          <button 
-            v-if="memo.status === 'DRAFT' && memo.authorId === currentUserId"
-            @click="editMemo" 
-            class="action-btn primary"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-            Edit
-          </button>
-          
-          <button @click="handlePrint" class="action-btn secondary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-            </svg>
-            Print
-          </button>
-          
-          <button @click="exportAsPDF" class="action-btn secondary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            Export PDF
-          </button>
+          <!-- Show regular buttons when not editing -->
+          <template v-else>
+            <div class="approval-badge" :class="approvalStatusClass">
+              <span class="status-dot"></span>
+              {{ formatStatus(memo.status) }}
+            </div>
+            
+            <button 
+              v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
+              @click="showApproveModal = true" 
+              class="action-btn primary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              Approve
+            </button>
+            
+            <button 
+              v-if="memo.status === 'PENDING_APPROVAL' && isCurrentApprover"
+              @click="showRejectModal = true" 
+              class="action-btn secondary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Reject
+            </button>
+            
+            <button 
+              v-if="canSendToNextApprover"
+              @click="openApproverModal" 
+              class="action-btn primary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              {{ sendButtonText }}
+            </button>
+            
+            <button 
+              v-if="canEdit"
+              @click="enterEditMode" 
+              class="action-btn primary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Edit
+            </button>
+            
+            <button @click="handlePrint" class="action-btn secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+              </svg>
+              Print
+            </button>
+            
+            <button @click="exportAsPDF" class="action-btn secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Export PDF
+            </button>
+          </template>
         </div>
       </div>
 
@@ -218,11 +239,174 @@
                fontSize: (memo.metadata?.fontSize || 12) + 'px', 
                lineHeight: memo.metadata?.lineHeight || '1.5'
              }">
-          <div class="document-content" v-html="memo.content"></div>
+             <div class="memo-header">
+                <div class="bank-header">
+                  <div class="bank-logo">
+                    <img src="/FirstTrust.png" alt="FirstTrust Logo" class="logo-image" />
+                  </div>
+                  <div class="internal-use-wrapper">
+                    <h1 class="internal-use-text">INTERNAL USE ONLY</h1>
+                  </div>
+                </div>
+              </div>
+              
+          <!-- Document Content - View Mode -->
+          <div v-if="!isEditing" class="document-content" v-html="memo.content"></div>
+          
+          <!-- Document Content - Edit Mode -->
+          <div v-else class="editable-content-wrapper">
+            <!-- HTML Source Mode -->
+            <textarea 
+              v-if="showHtmlSource"
+              v-model="editedContent"
+              class="editable-content-textarea"
+              placeholder="Edit HTML content..."
+            ></textarea>
+            
+            <!-- Visual Editor Mode (contenteditable) -->
+            <div 
+              v-else
+              ref="editorRef"
+              class="rich-editor document-content"
+              contenteditable="true"
+              @input="handleContentInput"
+              @paste="handlePaste"
+            ></div>
+            
+            <p class="editing-hint">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4M12 8h.01"/>
+              </svg>
+              {{ showHtmlSource ? 'Editing raw HTML. Click Visual to switch back.' : 'Editing content directly. Click HTML to edit source.' }}
+            </p>
+          </div>
           
           <!-- Memo Footer Section -->
           <div class="memo-footer-divider"></div>
-          <div class="memo-footer">
+          
+          <!-- Editable Footer -->
+          <div v-if="isEditing" class="memo-footer-editable">
+            <!-- Signatory Row -->
+            <div class="signatory-row">
+              <div class="signatory" v-for="(sig, idx) in editedFooterFields.signatories" :key="'edit-sig-' + idx">
+                <input 
+                  v-model="sig.name"
+                  class="footer-input footer-input--bold"
+                  placeholder="Name"
+                />
+                <input 
+                  v-model="sig.role"
+                  class="footer-input"
+                  placeholder="Role / Department"
+                />
+              </div>
+            </div>
+
+            <!-- Opex/Capex Section -->
+            <div class="opex-section">
+              <div class="opex-title">Opex/Capex</div>
+              
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">Monthly Budget ₦</div>
+                  <input v-model="editedFooterFields.monthlyBudget" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Expense to Date ₦</div>
+                  <input v-model="editedFooterFields.monthlyExpense" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Balance ₦</div>
+                  <input v-model="editedFooterFields.monthlyBalance" class="opex-input" />
+                </div>
+              </div>
+              
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">Annual Budget ₦</div>
+                  <input v-model="editedFooterFields.annualBudget" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Expense to Date ₦</div>
+                  <input v-model="editedFooterFields.annualExpense" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Balance ₦</div>
+                  <input v-model="editedFooterFields.annualBalance" class="opex-input" />
+                </div>
+              </div>
+              
+              <div class="opex-grid">
+                <div class="opex-cell">
+                  <div class="opex-label">FINCON</div>
+                  <input v-model="editedFooterFields.fincon" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Signature</div>
+                  <input v-model="editedFooterFields.signature" class="opex-input" />
+                </div>
+                <div class="opex-cell">
+                  <div class="opex-label">Date</div>
+                  <input v-model="editedFooterFields.finconDate" type="date" class="opex-input" />
+                </div>
+              </div>
+              
+              <div class="opex-comments-row">
+                <div class="opex-label">Comments</div>
+                <input v-model="editedFooterFields.comments" class="opex-input opex-input--wide" />
+              </div>
+            </div>
+            <!-- Concurrence Section (Editable) -->
+            <div class="concurrence-section">
+              <div class="concurrence-title">Concurrence:</div>
+              <div class="signoff-block" v-for="(person, idx) in editedFooterFields.concurrence" :key="'edit-c-' + idx">
+                <div class="signoff-name-line">
+                  <input 
+                    v-model="person.name"
+                    class="footer-input footer-input--bold signoff-name-input"
+                    placeholder="Name"
+                  />
+                  <span class="signoff-line"></span>
+                  <button @click="removeConcurrence(idx)" class="remove-btn" title="Remove">✕</button>
+                </div>
+                <input 
+                  v-model="person.role"
+                  class="footer-input signoff-role-input"
+                  placeholder="Role / Department"
+                />
+              </div>
+              <button @click="addConcurrence" class="add-btn">
+                + Add Concurrence
+              </button>
+            </div>
+            <!-- Approved By Section -->
+            <div class="approved-section">
+              <div class="concurrence-title">Approved By:</div>
+              <div class="signoff-block" v-for="(person, idx) in editedFooterFields.approvedBy" :key="'edit-a-' + idx">
+                <div class="signoff-name-line">
+                  <input 
+                    v-model="person.name"
+                    class="footer-input footer-input--bold signoff-name-input"
+                    placeholder="Name"
+                  />
+                  <span class="signoff-line"></span>
+                  <button @click="removeApprover(idx)" class="remove-btn" title="Remove">✕</button>
+                </div>
+                <input 
+                  v-model="person.role"
+                  class="footer-input signoff-role-input"
+                  placeholder="Role / Title"
+                />
+              </div>
+              <button @click="addApprover" class="add-btn">
+                + Add Approver
+              </button>
+            </div>
+          </div>
+
+          <!-- Read-only Footer -->
+          <div v-else class="memo-footer">
             <!-- Signatory Row -->
             <div class="signatory-row">
               <div class="signatory" v-for="(sig, idx) in (memo.metadata?.footerFields?.signatories || [])" :key="idx">
@@ -235,7 +419,6 @@
             <div class="opex-section">
               <div class="opex-title">Opex/Capex</div>
 
-              <!-- Row 1: Monthly Budget | Expense to Date | Balance -->
               <div class="opex-grid">
                 <div class="opex-cell">
                   <div class="opex-label">Monthly Budget ₦</div>
@@ -251,7 +434,6 @@
                 </div>
               </div>
 
-              <!-- Row 2: Annual Budget | Expense to Date | Balance -->
               <div class="opex-grid">
                 <div class="opex-cell">
                   <div class="opex-label">Annual Budget ₦</div>
@@ -267,7 +449,6 @@
                 </div>
               </div>
 
-              <!-- Row 3: FINCON | Signature | Date -->
               <div class="opex-grid">
                 <div class="opex-cell">
                   <div class="opex-label">FINCON</div>
@@ -283,13 +464,22 @@
                 </div>
               </div>
 
-              <!-- Comments -->
               <div class="opex-comments-row">
                 <div class="opex-label">Comments</div>
                 <div class="opex-value opex-value--wide">{{ memo.metadata?.footerFields?.comments || '_________________________' }}</div>
               </div>
             </div>
-
+            <!-- Concurrence Section -->
+            <div class="concurrence-section">
+              <div class="concurrence-title">Concurrence:</div>
+              <div class="signoff-block" v-for="(person, idx) in (memo.metadata?.footerFields?.concurrence || [])" :key="'c' + idx">
+                <div class="signoff-name-line">
+                  <span class="signoff-name">{{ person.name || '_________________________' }}</span>
+                  <span class="signoff-line"></span>
+                </div>
+                <div class="signoff-role">{{ person.role || '_________________________' }}</div>
+              </div>
+            </div>
             <!-- Approved By Section -->
             <div class="approved-section">
               <div class="concurrence-title">Approved By:</div>
@@ -336,7 +526,6 @@
           </button>
         </div>
 
-        <!-- Add Comment Input -->
         <div v-if="showCommentInput" class="add-comment">
           <div class="comment-avatar">
             <span>{{ currentUserInitials }}</span>
@@ -361,7 +550,6 @@
           </div>
         </div>
 
-        <!-- Comments List -->
         <div v-if="memo.comments && memo.comments.length > 0" class="comments-list">
           <div v-for="comment in sortedComments" :key="comment.id" class="comment-item">
             <div class="comment-avatar">
@@ -389,7 +577,6 @@
                 </button>
               </div>
 
-              <!-- Replies -->
               <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
                 <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
                   <div class="comment-avatar small">
@@ -409,7 +596,6 @@
           </div>
         </div>
 
-        <!-- Empty State -->
         <div v-else class="comments-empty">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
@@ -428,100 +614,10 @@
           <span class="document-indicator">
             📄 {{ memo.reference }}
           </span>
-          <span>View Only | Page 1 of 1</span>
+          <span>{{ isEditing ? 'Editing' : 'View Only' }} | Page 1 of 1</span>
         </div>
       </div>
     </div>
-
-    <!-- Approver Selection Modal -->
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="transform opacity-0 scale-95"
-      enter-to-class="transform opacity-100 scale-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="transform opacity-100 scale-100"
-      leave-to-class="transform opacity-0 scale-95"
-    >
-      <div v-if="showApproverModal" class="modal-overlay" @click.self="closeApproverModal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>Send to Next Approver</h3>
-            <button @click="closeApproverModal" class="close-btn">✕</button>
-          </div>
-          
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Select Next Approver</label>
-              <select v-model="selectedApprover" class="approver-select" :disabled="isLoadingApprovers">
-                <option value="" disabled>Choose next approver...</option>
-                <option v-for="approver in approversList" :key="approver.id" :value="approver.id">
-                  {{ approver.name }} - {{ approver.role }} ({{ approver.department }})
-                </option>
-              </select>
-              <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
-              <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">
-                No approvers available
-              </div>
-            </div>
-            
-            <div class="form-group">
-              <label>Priority Level</label>
-              <div class="priority-options">
-                <label class="priority-option">
-                  <input type="radio" v-model="priority" value="LOW">
-                  <span class="priority-badge low">Low</span>
-                </label>
-                <label class="priority-option">
-                  <input type="radio" v-model="priority" value="MEDIUM">
-                  <span class="priority-badge medium">Medium</span>
-                </label>
-                <label class="priority-option">
-                  <input type="radio" v-model="priority" value="HIGH">
-                  <span class="priority-badge high">High</span>
-                </label>
-                <label class="priority-option">
-                  <input type="radio" v-model="priority" value="URGENT">
-                  <span class="priority-badge urgent">Urgent</span>
-                </label>
-              </div>
-            </div>
-            
-            <div class="form-group">
-              <label>Due Date (Optional)</label>
-              <input type="date" v-model="dueDate" class="date-input">
-            </div>
-            
-            <div class="form-group">
-              <label>Message to Approver</label>
-              <textarea 
-                v-model="approverMessage" 
-                placeholder="Add any notes or instructions for the approver..."
-                rows="3"
-                class="message-input"
-              ></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="notifyByEmail">
-                Notify approver by email
-              </label>
-            </div>
-          </div>
-          
-          <div class="modal-footer">
-            <button @click="closeApproverModal" class="cancel-btn">Cancel</button>
-            <button 
-              @click="sendToNextApprover" 
-              class="send-btn"
-              :disabled="!selectedApprover || isSending || approversList.length === 0"
-            >
-              {{ isSending ? 'Sending...' : 'Send to Next Approver' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- Approve Modal -->
     <Transition
@@ -614,15 +710,108 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Approver Selection Modal -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="transform opacity-0 scale-95"
+      enter-to-class="transform opacity-100 scale-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="transform opacity-100 scale-100"
+      leave-to-class="transform opacity-0 scale-95"
+    >
+      <div v-if="showApproverModal" class="modal-overlay" @click.self="closeApproverModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Send to Next Approver</h3>
+            <button @click="closeApproverModal" class="close-btn">✕</button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Select Next Approver</label>
+              <select v-model="selectedApprover" class="approver-select" :disabled="isLoadingApprovers">
+                <option value="" disabled>Choose next approver...</option>
+                <option v-for="approver in approversList" :key="approver.id" :value="approver.id">
+                  {{ approver.name }} - {{ approver.role }} ({{ approver.department }})
+                </option>
+              </select>
+              <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
+              <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">
+                No approvers available
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Priority Level</label>
+              <div class="priority-options">
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="LOW">
+                  <span class="priority-badge low">Low</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="MEDIUM">
+                  <span class="priority-badge medium">Medium</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="HIGH">
+                  <span class="priority-badge high">High</span>
+                </label>
+                <label class="priority-option">
+                  <input type="radio" v-model="priority" value="URGENT">
+                  <span class="priority-badge urgent">Urgent</span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Due Date (Optional)</label>
+              <input type="date" v-model="dueDate" class="date-input">
+            </div>
+            
+            <div class="form-group">
+              <label>Message to Approver</label>
+              <textarea 
+                v-model="approverMessage" 
+                placeholder="Add any notes or instructions for the approver..."
+                rows="3"
+                class="message-input"
+              ></textarea>
+            </div>
+            
+            <!-- <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="notifyByEmail">
+                Notify approver by email
+              </label>
+            </div> -->
+          </div>
+          
+          <div class="modal-footer">
+            <button @click="closeApproverModal" class="cancel-btn">Cancel</button>
+            <button 
+              @click="sendToNextApprover" 
+              class="send-btn"
+              :disabled="!selectedApprover || isSending || approversList.length === 0"
+            >
+              {{ isSending ? 'Sending...' : 'Send to Next Approver' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+    
   </AdminLayout>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import axios from 'axios'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 const route = useRoute()
 const router = useRouter()
@@ -657,16 +846,35 @@ const notifyByEmail = ref(true)
 const isApproving = ref(false)
 const isRejecting = ref(false)
 
-// API Configuration
+// Editing state
+const isEditing = ref(false)
+const isSaving = ref(false)
+const showHtmlSource = ref(false)
+const editedContent = ref('')
+const editorRef = ref(null)
+const editedFooterFields = ref({
+  signatories: [{ name: '', role: '' }, { name: '', role: '' }],
+  monthlyBudget: '',
+  monthlyExpense: '',
+  monthlyBalance: '',
+  annualBudget: '',
+  annualExpense: '',
+  annualBalance: '',
+  fincon: '',
+  signature: '',
+  finconDate: '',
+  comments: '',
+  concurrence: [{ name: '', role: '' }],
+  approvedBy: [{ name: '', role: '' }]
+})
+
 const API_BASE_URL = 'http://localhost:3000/api/v1'
 
-// Auth token helper
 const getAuthHeader = () => {
   const token = JSON.parse(localStorage.getItem('token') || '{}')
   return { Authorization: `Bearer ${token}` }
 }
 
-// Get current user from localStorage
 const getCurrentUser = () => {
   try {
     const userStr = localStorage.getItem('user')
@@ -692,7 +900,6 @@ const currentUserInitials = currentUser?.displayName
   ? getInitials(currentUser.displayName) 
   : (currentUser?.username ? getInitials(currentUser.username) : 'U')
 
-// Memo data
 const memo = ref({
   id: null,
   reference: '',
@@ -721,10 +928,8 @@ const memo = ref({
   comments: []
 })
 
-// Approval history
 const approvalHistory = ref([])
 
-// Helper function to format currency
 const formatCurrency = (value) => {
   if (!value) return ''
   const num = parseFloat(value.toString().replace(/,/g, ''))
@@ -737,34 +942,28 @@ const formatCurrency = (value) => {
   }).format(num).replace('NGN', '₦')
 }
 
-// Computed
 const isCurrentApprover = computed(() => {
   return memo.value.currentApproverId === currentUserId && memo.value.status === 'PENDING_APPROVAL'
 })
 
-// UPDATED: Multi-step approval workflow - allows author to send to next approver after one approves
 const canSendToNextApprover = computed(() => {
-  // Only the author can send for approval
   if (memo.value.authorId !== currentUserId) return false
-  
-  // Cannot send if rejected
   if (memo.value.status === 'REJECTED') return false
-  
-  // If it's a draft, author can send for first approval
   if (memo.value.status === 'DRAFT') return true
-  
-  // If status is APPROVED, author can send to next approver
   if (memo.value.status === 'APPROVED') return true
-  
-  // If status is PENDING_APPROVAL, author cannot send (must wait for current approver)
   return false
 })
 
-// Dynamic text for send button
 const sendButtonText = computed(() => {
   if (memo.value.status === 'DRAFT') return 'Send for Approval'
   if (memo.value.status === 'APPROVED') return 'Send to Next Approver'
   return 'Send to Next Approver'
+})
+
+const canEdit = computed(() => {
+  if (memo.value.authorId !== currentUserId) return false
+  if (memo.value.status === 'REJECTED') return false
+  return true
 })
 
 const approvalStatusClass = computed(() => {
@@ -783,8 +982,10 @@ const sortedComments = computed(() => {
   )
 })
 
-// Methods
 const goToDashboard = () => {
+  if (isEditing.value) {
+    if (!confirm('You have unsaved changes. Leave anyway?')) return
+  }
   router.push('/main-dashboard')
 }
 
@@ -792,8 +993,126 @@ const goBack = () => {
   router.push('/memo-list')
 }
 
-const editMemo = () => {
-  router.push(`/memo/edit/${memoId}`)
+const enterEditMode = () => {
+  isEditing.value = true
+  editedContent.value = memo.value.content || ''
+  showHtmlSource.value = false
+  
+  const footerFields = memo.value.metadata?.footerFields || {}
+  editedFooterFields.value = {
+    signatories: footerFields.signatories?.length ? [...footerFields.signatories.map(s => ({ ...s }))] : [{ name: '', role: '' }, { name: '', role: '' }],
+    monthlyBudget: footerFields.monthlyBudget || '',
+    monthlyExpense: footerFields.monthlyExpense || '',
+    monthlyBalance: footerFields.monthlyBalance || '',
+    annualBudget: footerFields.annualBudget || '',
+    annualExpense: footerFields.annualExpense || '',
+    annualBalance: footerFields.annualBalance || '',
+    fincon: footerFields.fincon || '',
+    signature: footerFields.signature || '',
+    finconDate: footerFields.finconDate || '',
+    comments: footerFields.comments || '',
+    concurrence: footerFields.concurrence?.length ? [...footerFields.concurrence.map(c => ({ ...c }))] : [{ name: '', role: '' }],
+    approvedBy: footerFields.approvedBy?.length ? [...footerFields.approvedBy.map(a => ({ ...a }))] : [{ name: '', role: '' }]
+  }
+  
+  // Set the content after a tick without using v-html
+  nextTick(() => {
+    if (editorRef.value) {
+      editorRef.value.innerHTML = editedContent.value
+    }
+  })
+}
+
+const toggleHtmlMode = () => {
+  if (!showHtmlSource.value) {
+    // Switching to HTML mode - get content from rich editor
+    if (editorRef.value) {
+      editedContent.value = editorRef.value.innerHTML
+    }
+  }
+  showHtmlSource.value = !showHtmlSource.value
+  
+  // When switching to visual mode, set content after DOM updates
+  if (!showHtmlSource.value) {
+    nextTick(() => {
+      if (editorRef.value) {
+        editorRef.value.innerHTML = editedContent.value
+      }
+    })
+  }
+}
+const addConcurrence = () => {
+  editedFooterFields.value.concurrence.push({ name: '', role: '' })
+}
+
+const removeConcurrence = (index) => {
+  editedFooterFields.value.concurrence.splice(index, 1)
+}
+
+const handleContentInput = (e) => {
+  editedContent.value = e.target.innerHTML
+}
+
+const handlePaste = (e) => {
+  e.preventDefault()
+  const text = e.clipboardData.getData('text/plain')
+  document.execCommand('insertText', false, text)
+}
+
+const cancelEditing = () => {
+  if (editedContent.value !== memo.value.content) {
+    if (!confirm('Discard unsaved changes?')) return
+  }
+  isEditing.value = false
+  editedContent.value = ''
+  showHtmlSource.value = false
+}
+
+const saveChanges = async () => {
+  try {
+    isSaving.value = true
+    
+    // Get content from visual editor if not in HTML mode
+    if (!showHtmlSource.value && editorRef.value) {
+      editedContent.value = editorRef.value.innerHTML
+    }
+    
+    const payload = {
+      title: memo.value.title,
+      content: editedContent.value,
+      metadata: {
+        ...memo.value.metadata,
+        footerFields: editedFooterFields.value
+      }
+    }
+    
+    await axios.put(`${API_BASE_URL}/memos/${memoId}`, payload, {
+      headers: getAuthHeader()
+    })
+    
+    memo.value.content = editedContent.value
+    if (!memo.value.metadata) memo.value.metadata = {}
+    memo.value.metadata.footerFields = JSON.parse(JSON.stringify(editedFooterFields.value))
+    
+    isEditing.value = false
+    showHtmlSource.value = false
+    calculateWordCount()
+    showToastMessage('Changes saved successfully', 'success')
+    
+  } catch (error) {
+    console.error('Error saving changes:', error)
+    showToastMessage('Failed to save changes', 'error')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const addApprover = () => {
+  editedFooterFields.value.approvedBy.push({ name: '', role: '' })
+}
+
+const removeApprover = (index) => {
+  editedFooterFields.value.approvedBy.splice(index, 1)
 }
 
 const formatStatus = (status) => {
@@ -853,7 +1172,6 @@ const formatTimeAgo = (dateString) => {
   return formatDate(dateString)
 }
 
-// Fetch approval history
 const fetchApprovalHistory = async () => {
   if (!memoId) return
   
@@ -861,14 +1179,13 @@ const fetchApprovalHistory = async () => {
     const response = await axios.get(`${API_BASE_URL}/memos/${memoId}/approval-history`, {
       headers: getAuthHeader()
     })
-    
     approvalHistory.value = response.data.data || []
+    console.log("Approval History:", approvalHistory.value);
   } catch (error) {
     console.error('Error fetching approval history:', error)
   }
 }
 
-// Fetch approvers list
 const fetchApprovers = async () => {
   try {
     isLoadingApprovers.value = true
@@ -879,7 +1196,6 @@ const fetchApprovers = async () => {
     
     const usersData = response.data?.data?.data || []
     
-    // Get IDs of users who have already approved this memo
     const alreadyApprovedIds = approvalHistory.value
       .filter(item => item.action === 'APPROVED')
       .map(item => item.userId)
@@ -903,13 +1219,11 @@ const fetchApprovers = async () => {
   }
 }
 
-// Open approver modal
 const openApproverModal = async () => {
   showApproverModal.value = true
   await fetchApprovers()
 }
 
-// Close approver modal
 const closeApproverModal = () => {
   showApproverModal.value = false
   selectedApprover.value = ''
@@ -918,7 +1232,6 @@ const closeApproverModal = () => {
   approverMessage.value = ''
 }
 
-// Send to next approver
 const sendToNextApprover = async () => {
   if (!selectedApprover.value) {
     showToastMessage('Please select an approver', 'error')
@@ -959,7 +1272,6 @@ const sendToNextApprover = async () => {
   }
 }
 
-// API Methods
 const fetchMemo = async (id) => {
   try {
     isLoading.value = true
@@ -974,15 +1286,31 @@ const fetchMemo = async (id) => {
 
     console.log('Memo data:', memoData)
     
+    const defaultFooterFields = {
+      signatories: [{ name: '', role: '' }, { name: '', role: '' }],
+      monthlyBudget: '',
+      monthlyExpense: '',
+      monthlyBalance: '',
+      annualBudget: '',
+      annualExpense: '',
+      annualBalance: '',
+      fincon: '',
+      signature: '',
+      finconDate: '',
+      comments: '',
+      concurrence: [{ name: '', role: '' }],
+      approvedBy: [{ name: '', role: '' }]
+    }
+    
     memo.value = {
       ...memoData,
       status: memoData.status || 'DRAFT',
       content: memoData.content || '',
-      metadata: memoData.metadata || {
-        fontFamily: 'Century Gothic',
-        fontSize: 12,
-        lineHeight: '1.5',
-        footerFields: {}
+      metadata: {
+        fontFamily: memoData.metadata?.fontFamily || 'Century Gothic',
+        fontSize: memoData.metadata?.fontSize || 12,
+        lineHeight: memoData.metadata?.lineHeight || '1.5',
+        footerFields: { ...defaultFooterFields, ...(memoData.metadata?.footerFields || {}) }
       },
       attachments: memoData.attachments || [],
       comments: memoData.comments || [],
@@ -1016,7 +1344,6 @@ const approveMemo = async () => {
       { headers: getAuthHeader() }
     )
     
-    // After approval, status becomes APPROVED (ready for next step)
     memo.value.status = 'APPROVED'
     showApproveModal.value = false
     await fetchApprovalHistory()
@@ -1059,11 +1386,709 @@ const rejectMemo = async () => {
 }
 
 const handlePrint = () => {
-  window.print()
+  // Create a clone of the document for printing
+  const printContent = document.createElement('div')
+  printContent.innerHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${memo.value.reference} - ${memo.value.title}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: '${memo.value.metadata?.fontFamily || 'Century Gothic'}', Calibri, Arial, sans-serif;
+            font-size: ${memo.value.metadata?.fontSize || 12}px;
+            line-height: ${memo.value.metadata?.lineHeight || '1.5'};
+            background: white;
+            color: black;
+          }
+          .print-container {
+            width: 8.5in;
+            min-height: 11in;
+            padding: 1in;
+            margin: 0 auto;
+            background: white;
+          }
+          .memo-header {
+            margin-bottom: 1.5rem;
+          }
+          .bank-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 2px solid #004080;
+          }
+          .bank-logo {
+            width: 160px;
+            height: 160px;
+            flex-shrink: 0;
+          }
+          .logo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+          .internal-use-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: gray;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin: 0;
+            padding: 0.5rem 1rem;
+            border: 2px solid gray;
+            border-radius: 4px;
+            background-color: white;
+          }
+          .document-content {
+            max-width: 100%;
+            line-height: 1.6;
+          }
+          .document-content h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0.67em 0;
+          }
+          .document-content h2 {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 1.5em 0 0.5em;
+          }
+          .document-content p {
+            margin: 0 0 1rem 0;
+          }
+          .document-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+            font-size: 12px;
+          }
+          .document-content th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+          }
+          .document-content td {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+          }
+          .document-content ul, .document-content ol {
+            padding-left: 2rem;
+            margin: 1rem 0;
+          }
+          
+          /* Footer Styles */
+          .memo-footer-divider {
+            border: none;
+            border-top: 2px solid #000;
+            margin: 2rem 0 1.5rem;
+          }
+          .memo-footer {
+            margin-top: 1.5rem;
+            font-size: 11px;
+          }
+          .signatory-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+          }
+          .signatory {
+            flex: 1;
+          }
+          .signatory-name {
+            font-weight: 700;
+            font-size: 11px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 0.25rem;
+          }
+          .signatory-role {
+            font-size: 10px;
+            color: #333;
+          }
+          .opex-section {
+            margin-bottom: 1.5rem;
+            border-top: 1px solid #000;
+            padding-top: 0.75rem;
+          }
+          .opex-title {
+            font-weight: 700;
+            font-size: 11px;
+            text-decoration: underline;
+            margin-bottom: 0.75rem;
+          }
+          .opex-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+          }
+          .opex-label {
+            font-size: 10px;
+            font-weight: 600;
+          }
+          .opex-value {
+            border: 1px solid #000;
+            padding: 0.25rem 0.5rem;
+            font-size: 10px;
+            background-color: #f9f9f9;
+          }
+          .opex-value--wide {
+            width: 100%;
+          }
+          .approved-section {
+            margin-bottom: 1.5rem;
+            border-top: 1px solid #000;
+            padding-top: 0.75rem;
+          }
+          .concurrence-section {
+            margin-bottom: 1.5rem;
+            border-top: 1px solid var(--color-gray-300);
+            padding-top: 0.75rem;
+          }
+
+          .dark .concurrence-section {
+            border-top-color: var(--color-gray-700);
+          }
+          .concurrence-title {
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 0.75rem;
+          }
+          .signoff-block {
+            margin-bottom: 1rem;
+          }
+          .signoff-name-line {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.5rem;
+            margin-bottom: 0.15rem;
+          }
+          .signoff-name {
+            font-weight: 600;
+            font-size: 11px;
+            min-width: 200px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 0.15rem;
+          }
+          .signoff-line {
+            flex: 1;
+            border-bottom: 1px solid #000;
+            margin-bottom: 3px;
+          }
+          .signoff-role {
+            font-size: 10px;
+            color: #333;
+            margin-left: 0.5rem;
+          }
+          
+          @media print {
+            body { margin: 0; padding: 0; }
+            .print-container { box-shadow: none; padding: 0.5in; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          <div class="memo-header">
+            <div class="bank-header">
+              <div class="bank-logo">
+                <img src="/FirstTrust.png" alt="FirstTrust Logo" class="logo-image" />
+              </div>
+              <div class="internal-use-wrapper">
+                <h1 class="internal-use-text">INTERNAL USE ONLY</h1>
+              </div>
+            </div>
+          </div>
+          
+          <div class="document-content">
+            ${memo.value.content}
+          </div>
+          
+          <div class="memo-footer-divider"></div>
+          
+          <div class="memo-footer">
+            ${generatePrintFooter()}
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+  
+  // Open print window
+  const printWindow = window.open('', '_blank', 'width=900,height=700')
+  printWindow.document.write(printContent.innerHTML)
+  printWindow.document.close()
+  
+  // Wait for images to load then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+      // Don't close immediately - let user print
+    }, 500)
+  }
+}
+
+const generatePrintApprovalHistory = () => {
+  if (!approvalHistory.value || approvalHistory.value.length === 0) return ''
+  
+  const historyItems = approvalHistory.value.map(item => {
+    const actorName = item.actorName || item.user?.name || 'Unknown'
+    const action = formatAction(item.action)
+    const time = formatDateTime(item.createdAt)
+    const comment = item.comment ? `"${item.comment}"` : ''
+    let details = ''
+    if (item.action === 'SENT_FOR_APPROVAL' && item.targetApproverName) {
+      details = `Sent to: ${item.targetApproverName}`
+    } else if (item.action === 'APPROVED') {
+      details = `Approved by: ${item.actorName || item.userName || item.user?.name}`
+    } else if (item.action === 'REJECTED') {
+      details = `Rejected by: ${item.actorName || item.userName || item.user?.name}`
+    }
+    
+    return `
+      <div class="history-item">
+        <div class="history-icon ${item.action.toLowerCase()}">
+          ${getHistoryIcon(item.action)}
+        </div>
+        <div class="history-content">
+          <div class="history-title">
+            <strong>${actorName}</strong>
+            <span class="history-action">${action}</span>
+            <span class="history-time">${time}</span>
+          </div>
+          ${comment ? `<div class="history-comment">${comment}</div>` : ''}
+          ${details ? `<div class="history-details">${details}</div>` : ''}
+        </div>
+      </div>
+    `
+  }).join('')
+  
+  return `
+    <div class="approval-history-print">
+      <div class="history-header-print">
+        <h4>Approval History</h4>
+      </div>
+      <div class="history-timeline-print">
+        ${historyItems}
+      </div>
+    </div>
+  `
+}
+
+// Helper to get icon SVG for print
+const getHistoryIcon = (action) => {
+  if (action === 'SENT_FOR_APPROVAL') {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1976D2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`
+  } else if (action === 'APPROVED') {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2E7D32"><path d="M20 6L9 17l-5-5"/></svg>`
+  } else if (action === 'REJECTED') {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C62828"><path d="M18 6L6 18M6 6l12 12"/></svg>`
+  }
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>`
+}
+
+// Helper function to generate footer HTML for printing
+const generatePrintFooter = () => {
+  const footer = memo.value.metadata?.footerFields || {}
+  const signatories = footer.signatories || []
+  const concurrence = footer.concurrence || []
+  const approvedBy = footer.approvedBy || []
+  
+  return `
+    <div class="signatory-row">
+      ${signatories.map(sig => `
+        <div class="signatory">
+          <div class="signatory-name">${sig.name || '_________________________'}</div>
+          <div class="signatory-role">${sig.role || '_________________________'}</div>
+        </div>
+      `).join('')}
+    </div>
+    
+    <div class="opex-section">
+      <div class="opex-title">Opex/Capex</div>
+      
+      <div class="opex-grid">
+        <div class="opex-cell">
+          <div class="opex-label">Monthly Budget ₦</div>
+          <div class="opex-value">${formatCurrency(footer.monthlyBudget) || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Expense to Date ₦</div>
+          <div class="opex-value">${formatCurrency(footer.monthlyExpense) || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Balance ₦</div>
+          <div class="opex-value">${formatCurrency(footer.monthlyBalance) || '_________________________'}</div>
+        </div>
+      </div>
+      
+      <div class="opex-grid">
+        <div class="opex-cell">
+          <div class="opex-label">Annual Budget ₦</div>
+          <div class="opex-value">${formatCurrency(footer.annualBudget) || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Expense to Date ₦</div>
+          <div class="opex-value">${formatCurrency(footer.annualExpense) || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Balance ₦</div>
+          <div class="opex-value">${formatCurrency(footer.annualBalance) || '_________________________'}</div>
+        </div>
+      </div>
+      
+      <div class="opex-grid">
+        <div class="opex-cell">
+          <div class="opex-label">FINCON</div>
+          <div class="opex-value">${footer.fincon || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Signature</div>
+          <div class="opex-value">${footer.signature || '_________________________'}</div>
+        </div>
+        <div class="opex-cell">
+          <div class="opex-label">Date</div>
+          <div class="opex-value">${footer.finconDate || '_________________________'}</div>
+        </div>
+      </div>
+      
+      <div class="opex-comments-row">
+        <div class="opex-label">Comments</div>
+        <div class="opex-value opex-value--wide">${footer.comments || '_________________________'}</div>
+      </div>
+    </div>
+    <!-- Concurrence Section -->
+    <div class="concurrence-section">
+      <div class="concurrence-title">Concurrence:</div>
+      ${concurrence.map(person => `
+        <div class="signoff-block">
+          <div class="signoff-name-line">
+            <span class="signoff-name">${person.name || '_________________________'}</span>
+            <span class="signoff-line"></span>
+          </div>
+          <div class="signoff-role">${person.role || '_________________________'}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Approval History Section -->
+    ${generatePrintApprovalHistory()}
+
+    <div class="approved-section">
+      <div class="concurrence-title">Approved By:</div>
+      ${approvedBy.map(person => `
+        <div class="signoff-block">
+          <div class="signoff-name-line">
+            <span class="signoff-name">${person.name || '_________________________'}</span>
+            <span class="signoff-line"></span>
+          </div>
+          <div class="signoff-role">${person.role || '_________________________'}</div>
+        </div>
+      `).join('')}
+    </div>
+  `
 }
 
 const exportAsPDF = () => {
-  showToastMessage('PDF export coming soon', 'info')
+  // Create a clean printable version
+  const printContent = document.createElement('div')
+  printContent.innerHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${memo.value.reference} - ${memo.value.title}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: '${memo.value.metadata?.fontFamily || 'Century Gothic'}', Calibri, Arial, sans-serif;
+            font-size: ${memo.value.metadata?.fontSize || 12}px;
+            line-height: ${memo.value.metadata?.lineHeight || '1.5'};
+            background: white;
+            color: black;
+          }
+          .print-container {
+            width: 8.5in;
+            padding: 0.5in;
+            margin: 0 auto;
+            background: white;
+          }
+          .memo-header {
+            margin-bottom: 1.5rem;
+          }
+          .bank-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 2px solid #004080;
+          }
+          .bank-logo {
+            width: 160px;
+            height: 160px;
+            flex-shrink: 0;
+          }
+          .logo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+          .internal-use-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: gray;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin: 0;
+            padding: 0.5rem 1rem;
+            border: 2px solid gray;
+            border-radius: 4px;
+            background-color: white;
+          }
+          .document-content {
+            max-width: 100%;
+            line-height: 1.6;
+          }
+          .document-content h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0.67em 0;
+          }
+          .document-content h2 {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 1.5em 0 0.5em;
+          }
+          .document-content h3 {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 1.2em 0 0.4em;
+          }
+          .document-content p {
+            margin: 0 0 1rem 0;
+          }
+          .document-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+            font-size: 12px;
+          }
+          .document-content th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+          }
+          .document-content td {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+          }
+          .document-content ul, .document-content ol {
+            padding-left: 2rem;
+            margin: 1rem 0;
+          }
+          
+          /* Keep certain elements together */
+          .document-content h1, 
+          .document-content h2, 
+          .document-content h3 {
+            page-break-after: avoid;
+          }
+          .document-content h1 + p,
+          .document-content h2 + p,
+          .document-content h3 + p {
+            page-break-before: avoid;
+          }
+          .document-content table {
+            page-break-inside: auto;
+          }
+          .document-content tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          
+          /* Footer Styles */
+          .memo-footer-divider {
+            border: none;
+            border-top: 2px solid #000;
+            margin: 2rem 0 1.5rem;
+          }
+          .memo-footer {
+            margin-top: 1.5rem;
+            font-size: 11px;
+          }
+          .signatory-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+          }
+          .signatory {
+            flex: 1;
+          }
+          .signatory-name {
+            font-weight: 700;
+            font-size: 11px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 0.25rem;
+          }
+          .signatory-role {
+            font-size: 10px;
+            color: #333;
+          }
+          .opex-section {
+            margin-bottom: 1.5rem;
+            border-top: 1px solid #000;
+            padding-top: 0.75rem;
+          }
+          .opex-title {
+            font-weight: 700;
+            font-size: 11px;
+            text-decoration: underline;
+            margin-bottom: 0.75rem;
+          }
+          .opex-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+          }
+          .opex-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+          }
+          .opex-label {
+            font-size: 10px;
+            font-weight: 600;
+          }
+          .opex-value {
+            border: 1px solid #000;
+            padding: 0.25rem 0.5rem;
+            font-size: 10px;
+            background-color: #f9f9f9;
+          }
+          .opex-value--wide {
+            width: 100%;
+          }
+          .opex-comments-row {
+            margin-top: 0.5rem;
+          }
+          .approved-section {
+            margin-bottom: 1.5rem;
+            border-top: 1px solid #000;
+            padding-top: 0.75rem;
+          }
+          .concurrence-title {
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 0.75rem;
+          }
+          .signoff-block {
+            margin-bottom: 1rem;
+          }
+          .signoff-name-line {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.5rem;
+            margin-bottom: 0.15rem;
+          }
+          .signoff-name {
+            font-weight: 600;
+            font-size: 11px;
+            min-width: 200px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 0.15rem;
+          }
+          .signoff-line {
+            flex: 1;
+            border-bottom: 1px solid #000;
+            margin-bottom: 3px;
+          }
+          .signoff-role {
+            font-size: 10px;
+            color: #333;
+            margin-left: 0.5rem;
+          }
+          
+          /* Footer - keep together */
+          .memo-footer {
+            page-break-inside: avoid;
+          }
+          
+          @page {
+            size: letter;
+            margin: 0.5in;
+          }
+          
+          @media print {
+            body { 
+              margin: 0; 
+              padding: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .print-container { 
+              box-shadow: none; 
+              padding: 0;
+              width: 100%;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          <div class="memo-header">
+            <div class="bank-header">
+              <div class="bank-logo">
+                <img src="/FirstTrust.png" alt="FirstTrust Logo" class="logo-image" />
+              </div>
+              <div class="internal-use-wrapper">
+                <h1 class="internal-use-text">INTERNAL USE ONLY</h1>
+              </div>
+            </div>
+          </div>
+          
+          <div class="document-content">
+            ${memo.value.content}
+          </div>
+          
+          <div class="memo-footer-divider"></div>
+          
+          <div class="memo-footer">
+            ${generatePrintFooter()}
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+  
+  // Open in new window and print
+  const printWindow = window.open('', '_blank', 'width=900,height=700')
+  printWindow.document.write(printContent.innerHTML)
+  printWindow.document.close()
+  
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
+  }
+  
+  showToastMessage('Print dialog opened. Select "Save as PDF" to export.', 'success')
 }
 
 const downloadAttachment = async (file) => {
@@ -1114,7 +2139,6 @@ const showToastMessage = (message, type = 'success') => {
   }, 3000)
 }
 
-// Comment methods
 const addComment = async () => {
   if (!newComment.value.trim()) return
   
@@ -1196,7 +2220,6 @@ const calculateWordCount = () => {
   charCount.value = text.length
 }
 
-// Load memo data on mount
 onMounted(() => {
   if (memoId) {
     fetchMemo(memoId)
@@ -1208,7 +2231,356 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Footer Styles - Updated to match new structure */
+/* Rich Editor Styles */
+.rich-editor {
+  min-height: 400px;
+  padding: 1rem;
+  border: 2px solid var(--color-brand-300);
+  border-radius: 0.5rem;
+  background-color: var(--color-white);
+  color: var(--color-gray-900);
+  outline: none;
+  line-height: 1.6;
+}
+
+.dark .rich-editor {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-brand-600);
+  color: var(--color-gray-100);
+}
+
+.rich-editor:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.dark .rich-editor:focus {
+  box-shadow: 0 0 0 3px var(--color-brand-500/20);
+}
+
+.rich-editor :deep(h1) {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0.67em 0;
+}
+
+.rich-editor :deep(h2) {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 1.5em 0 0.5em;
+}
+
+.rich-editor :deep(p) {
+  margin: 0 0 1rem 0;
+}
+
+.rich-editor :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.rich-editor :deep(th) {
+  background-color: #f3f4f6;
+  font-weight: bold;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.dark .rich-editor :deep(th) {
+  background-color: #1f2937;
+  border-color: #4b5563;
+}
+
+.rich-editor :deep(td) {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.dark .rich-editor :deep(td) {
+  border-color: #4b5563;
+}
+
+.rich-editor :deep(ul), .rich-editor :deep(ol) {
+  padding-left: 2rem;
+  margin: 1rem 0;
+}
+
+/* HTML Source Textarea */
+.editable-content-textarea {
+  width: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  border: 2px solid var(--color-brand-300);
+  border-radius: 0.5rem;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: var(--color-white);
+  color: var(--color-gray-900);
+  resize: vertical;
+}
+
+.dark .editable-content-textarea {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-brand-600);
+  color: var(--color-gray-100);
+}
+
+.editable-content-textarea:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.editing-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+.action-btn.active {
+  background-color: var(--color-brand-100) !important;
+  color: var(--color-brand-700) !important;
+  border-color: var(--color-brand-300) !important;
+}
+
+.dark .action-btn.active {
+  background-color: var(--color-brand-800) !important;
+  color: var(--color-brand-300) !important;
+  border-color: var(--color-brand-600) !important;
+}
+
+/* Editable Content Styles */
+.editable-content-wrapper {
+  margin-bottom: 1rem;
+}
+
+.editable-content-textarea {
+  width: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  border: 2px solid var(--color-brand-300);
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  background-color: var(--color-white);
+  color: var(--color-gray-900);
+  resize: vertical;
+}
+
+.dark .editable-content-textarea {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-brand-600);
+  color: var(--color-gray-100);
+}
+
+.editable-content-textarea:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.dark .editable-content-textarea:focus {
+  box-shadow: 0 0 0 3px var(--color-brand-500/20);
+}
+
+.editing-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+/* Editable Footer Styles */
+.memo-footer-editable {
+  margin-top: 1.5rem;
+  font-size: 11px;
+  color: var(--color-gray-700);
+}
+
+.dark .memo-footer-editable {
+  color: var(--color-gray-400);
+}
+
+.memo-footer-editable .footer-input {
+  border: none;
+  border-bottom: 1px dashed var(--color-gray-400);
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 11px;
+  color: inherit;
+  padding: 0.1rem 0.2rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.memo-footer-editable .footer-input:focus {
+  border-bottom-color: var(--color-brand-500);
+}
+
+.memo-footer-editable .footer-input--bold {
+  font-weight: 700;
+}
+
+.memo-footer-editable .opex-input {
+  border: 1px solid var(--color-gray-300);
+  border-radius: 2px;
+  padding: 0.3rem 0.4rem;
+  font-size: 10px;
+  font-family: inherit;
+  background: var(--color-white);
+  width: 100%;
+  box-sizing: border-box;
+  height: 1.75rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.dark .memo-footer-editable .opex-input {
+  background: var(--color-gray-800);
+  border-color: var(--color-gray-600);
+  color: var(--color-gray-100);
+}
+
+.memo-footer-editable .opex-input:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 2px rgba(70, 95, 255, 0.15);
+}
+
+.memo-footer-editable .add-btn {
+  background: none;
+  border: 1px dashed var(--color-gray-400);
+  border-radius: 0.375rem;
+  color: var(--color-gray-600);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  margin-top: 0.25rem;
+  transition: all 0.15s;
+}
+
+.memo-footer-editable .add-btn:hover {
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-500);
+  background: rgba(70, 95, 255, 0.04);
+}
+
+.memo-footer-editable .remove-btn {
+  background: none;
+  border: none;
+  color: var(--color-gray-400);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.memo-footer-editable .remove-btn:hover {
+  color: #c62828;
+}
+
+.memo-footer-editable .signatory-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.memo-footer-editable .signatory {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.memo-footer-editable .opex-section {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--color-gray-300);
+  padding-top: 0.75rem;
+}
+
+.memo-footer-editable .opex-title {
+  font-weight: 700;
+  font-size: 11px;
+  text-decoration: underline;
+  margin-bottom: 0.75rem;
+}
+
+.memo-footer-editable .opex-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.memo-footer-editable .opex-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.memo-footer-editable .opex-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-gray-600);
+}
+
+.memo-footer-editable .opex-comments-row {
+  margin-top: 0.5rem;
+}
+
+.memo-footer-editable .approved-section {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--color-gray-300);
+  padding-top: 0.75rem;
+}
+
+.memo-footer-editable .concurrence-title {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 0.75rem;
+}
+
+.memo-footer-editable .signoff-block {
+  margin-bottom: 1rem;
+}
+
+.memo-footer-editable .signoff-name-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.memo-footer-editable .signoff-name-input {
+  max-width: 250px;
+  flex-shrink: 0;
+}
+
+.memo-footer-editable .signoff-line {
+  flex: 1;
+  border-bottom: 1px solid var(--color-gray-400);
+  margin-bottom: 3px;
+}
+
+.memo-footer-editable .signoff-role-input {
+  margin-top: 0.15rem;
+  font-size: 11px;
+  max-width: 300px;
+}
+
+/* Footer Styles */
 .memo-footer-divider {
   border: none;
   border-top: 2px solid var(--color-gray-300);
@@ -1229,7 +2601,6 @@ onMounted(() => {
   color: var(--color-gray-400);
 }
 
-/* Signatory Row */
 .signatory-row {
   display: flex;
   justify-content: space-between;
@@ -1260,7 +2631,6 @@ onMounted(() => {
   color: var(--color-gray-500);
 }
 
-/* Opex/Capex Section */
 .opex-section {
   margin-bottom: 1.5rem;
   border-top: 1px solid var(--color-gray-300);
@@ -1323,15 +2693,12 @@ onMounted(() => {
   margin-top: 0.5rem;
 }
 
-/* Concurrence & Approved By Sections */
-.concurrence-section,
 .approved-section {
   margin-bottom: 1.5rem;
   border-top: 1px solid var(--color-gray-300);
   padding-top: 0.75rem;
 }
 
-.dark .concurrence-section,
 .dark .approved-section {
   border-top-color: var(--color-gray-700);
 }
@@ -1377,112 +2744,6 @@ onMounted(() => {
   color: var(--color-gray-500);
 }
 
-/* Add footer styles */
-.memo-footer-divider {
-  border: none;
-  border-top: 2px solid var(--color-gray-300);
-  margin: 2rem 0 1.5rem;
-}
-
-.dark .memo-footer-divider {
-  border-top-color: var(--color-gray-700);
-}
-
-.memo-footer {
-  margin-top: 1.5rem;
-  font-size: 11px;
-  color: var(--color-gray-700);
-}
-
-.dark .memo-footer {
-  color: var(--color-gray-400);
-}
-
-.footer-signature-block {
-  margin-bottom: 1.5rem;
-}
-
-.signature-line {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px dashed var(--color-gray-300);
-}
-
-.dark .signature-line {
-  border-bottom-color: var(--color-gray-700);
-}
-
-.signature-field {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.signature-field strong {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--color-gray-600);
-}
-
-.dark .signature-field strong {
-  color: var(--color-gray-500);
-}
-
-.signature-value {
-  font-family: monospace;
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-
-.signature-name {
-  font-size: 10px;
-  color: var(--color-brand-600);
-  font-weight: 500;
-}
-
-.dark .signature-name {
-  color: var(--color-brand-400);
-}
-
-.footer-distribution,
-.footer-reference,
-.footer-department {
-  margin-top: 0.75rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--color-gray-200);
-}
-
-.dark .footer-distribution,
-.dark .footer-reference,
-.dark .footer-department {
-  border-top-color: var(--color-gray-700);
-}
-
-.footer-distribution strong,
-.footer-reference strong,
-.footer-department strong {
-  display: block;
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--color-gray-600);
-  margin-bottom: 0.25rem;
-}
-
-.dark .footer-distribution strong,
-.dark .footer-reference strong,
-.dark .footer-department strong {
-  color: var(--color-gray-500);
-}
-
-.footer-distribution p,
-.footer-reference span,
-.footer-department span {
-  font-size: 11px;
-  line-height: 1.4;
-}
 /* Approval History Styles */
 .approval-history {
   background-color: var(--color-white);
@@ -2126,6 +3387,59 @@ onMounted(() => {
   background: var(--color-gray-600);
 }
 
+.memo-header {
+  margin-bottom: 1.5rem;
+}
+
+/* Bank Header with Logo - Flexbox for left/right alignment */
+.bank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #004080;
+}
+
+.bank-logo {
+  width: 160px;
+  height: 160px;
+  flex-shrink: 0;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* INTERNAL USE ONLY - Right aligned */
+.internal-use-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.internal-use-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: gray;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.dark .internal-use-text {
+  color: #E57373;
+  border-color: #E57373;
+  background-color: #4A2A2A;
+}
+
 /* Document Page */
 .document-page {
   width: 8.5in;
@@ -2430,6 +3744,107 @@ onMounted(() => {
 
 .dark .comment-author {
   color: var(--color-gray-100);
+}
+.approval-history-print {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid #000;
+  padding-top: 0.75rem;
+  page-break-inside: avoid;
+}
+
+.history-header-print {
+  margin-bottom: 1rem;
+}
+
+.history-header-print h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #000;
+}
+
+.history-timeline-print {
+  padding: 0.25rem 0;
+}
+
+.history-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  position: relative;
+  page-break-inside: avoid;
+}
+
+.history-item:not(:last-child) {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.history-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: #f5f5f5;
+}
+
+.history-icon.sent {
+  background-color: #E3F2FD;
+  color: #1976D2;
+}
+
+.history-icon.approved {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+
+.history-icon.rejected {
+  background-color: #FFEBEE;
+  color: #C62828;
+}
+
+.history-content {
+  flex: 1;
+  font-size: 10px;
+}
+
+.history-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.125rem;
+}
+
+.history-title strong {
+  font-size: 10px;
+}
+
+.history-action {
+  font-size: 8px;
+  padding: 0.125rem 0.375rem;
+  border-radius: 1rem;
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.history-time {
+  font-size: 12px;
+  color: #666;
+  margin-left: auto;
+}
+
+.history-comment {
+  font-style: italic;
+  color: #555;
+  margin-bottom: 0.125rem;
+  font-size: 14px;
+}
+
+.history-details {
+  font-size: 12px;
+  color: #1976D2;
 }
 
 .comment-role {
@@ -2784,6 +4199,19 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
+.animate-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+/* Disabled button styles */
+.send-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Print Styles */
 @media print {
   .editor-header,
@@ -2860,22 +4288,5 @@ onMounted(() => {
     flex-direction: column;
     gap: 0.5rem;
   }
-}
-/* Spinner Animation */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-  display: inline-block;
-}
-
-/* Disabled button styles */
-.send-btn:disabled,
-.cancel-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  pointer-events: none;
 }
 </style>
