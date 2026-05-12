@@ -436,7 +436,7 @@ const isProfileInfoModal = ref(false)
 
 // Computed properties for display
 const userFullName = computed(() => {
-  return user.value?.displayName || user.value?.name || user.value?.username || 'User'
+  return user.value?.username + ' ' + user.value?.displayName
 })
 
 const userFirstName = computed(() => {
@@ -445,9 +445,7 @@ const userFirstName = computed(() => {
 })
 
 const userLastName = computed(() => {
-  const fullName = userFullName.value
-  const parts = fullName.split(' ')
-  return parts.length > 1 ? parts.slice(1).join(' ') : ''
+  return user.value?.displayName || ''
 })
 
 const userInitials = computed(() => {
@@ -519,7 +517,7 @@ const updateFormFromUser = () => {
   
   profileForm.value = {
     firstName: nameParts[0] || '',
-    lastName: nameParts.slice(1).join(' ') || '',
+    lastName: user.value?.displayName || '',
     email: user.value?.email || '',
     phone: user.value?.phone || '',
     bio: user.value?.bio || '',

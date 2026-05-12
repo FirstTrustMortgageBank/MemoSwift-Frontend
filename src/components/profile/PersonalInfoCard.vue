@@ -271,9 +271,7 @@ const userFirstName = computed(() => {
 })
 
 const userLastName = computed(() => {
-  const fullName = user.value?.username
-  const parts = fullName.split(' ')
-  return parts.length > 1 ? parts.slice(1).join(' ') : ''
+  return user.value?.lastName || user.value?.displayName || ''
 })
 
 const userEmail = computed(() => {
