@@ -126,7 +126,7 @@ interface PeriodOption {
   label: string
 }
 
-const API_BASE_URL = 'http://10.100.2.31:9000/api/v1'
+const API_BASE_URL = 'http://10.100.2.31:4000/api/v1'
 
 // State
 const isLoading = ref(true)

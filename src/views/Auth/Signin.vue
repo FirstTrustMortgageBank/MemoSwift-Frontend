@@ -226,7 +226,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 // API configuration
-const API_URL = 'http://10.100.2.31:9000/api/v1' // Adjust this to your backend URL
+const API_URL = 'http://10.100.2.31:4000/api/v1' // Adjust this to your backend URL
 
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
