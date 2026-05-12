@@ -92,9 +92,10 @@ const userFullName = computed(() => {
 const userFirstName = computed(() => {
   const fullName = userFullName.value
   // Check if fullName exists before calling split
+  // Make this Uppercase and return first name only
   if (!fullName) return 'User'
   const parts = fullName.split(' ')
-  return parts[0] || 'User'
+  return parts[0]?.toUpperCase() || 'User'
 })
 
 const userEmail = computed(() => {
