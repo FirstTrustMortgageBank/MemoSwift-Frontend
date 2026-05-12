@@ -868,7 +868,7 @@ const editedFooterFields = ref({
   approvedBy: [{ name: '', role: '' }]
 })
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = 'http://10.100.2.31:9000/api/v1'
 
 const getAuthHeader = () => {
   const token = JSON.parse(localStorage.getItem('token') || '{}')

@@ -2,7 +2,7 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
 
-const API_BASE_URL: string ='http://localhost:3000/api/v1'
+const API_BASE_URL: string ='http://10.100.2.31:9000/api/v1'
 
 interface EventData {
   // Define the shape of your event object

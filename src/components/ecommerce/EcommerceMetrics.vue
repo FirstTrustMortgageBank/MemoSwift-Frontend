@@ -233,7 +233,7 @@ interface TrendsResponse {
   [key: string]: any
 }
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = 'http://10.100.2.31:9000/api/v1'
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 

@@ -371,7 +371,7 @@ import MemoFooter from './Memofooter.vue'
 
 import defaultTemplate from '../../assets/templates/memo-template.docx?url'
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = 'http://10.100.2.31:9000/api/v1'
 
 // Custom LineHeight extension
 const LineHeight = Extension.create({

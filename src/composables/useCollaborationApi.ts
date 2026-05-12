@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 
 const BASE_URL =
-  import.meta.env.VITE_COLLABORATION_API_URL ?? 'http://localhost:3000/api/v1'
+  import.meta.env.VITE_COLLABORATION_API_URL ?? 'http://10.100.2.31:9000/api/v1'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
