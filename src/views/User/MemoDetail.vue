@@ -729,17 +729,73 @@
           
           <div class="modal-body">
             <div class="form-group">
-              <label>Select Next Approver</label>
-              <select v-model="selectedApprover" class="approver-select" :disabled="isLoadingApprovers">
-                <option value="" disabled>Choose next approver...</option>
-                <option v-for="approver in approversList" :key="approver.id" :value="approver.id">
-                  {{ approver.name }} - {{ approver.role }} ({{ approver.department }})
-                </option>
-              </select>
-              <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
-              <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">
-                No approvers available
+              <label>Select Approver</label>
+              
+              <!-- Searchable Approver Dropdown -->
+              <div class="searchable-select" :class="{ 'is-open': showApproverDropdown, 'no-selection': !selectedApprover }">
+                <div class="select-input-wrapper" @click="toggleApproverDropdown">
+                  <div class="select-input-content">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <input
+                      ref="approverSearchInput"
+                      v-model="approverSearchQuery"
+                      type="text"
+                      :placeholder="selectedApproverName || 'Search and select approver...'"
+                      class="search-input"
+                      @focus="showApproverDropdown = true"
+                      @input="filterApprovers"
+                      :disabled="isLoadingApprovers"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <svg 
+                    class="dropdown-arrow" 
+                    :class="{ 'is-open': showApproverDropdown }"
+                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  >
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+                
+                <!-- Dropdown list -->
+                <div v-if="showApproverDropdown" class="select-dropdown" @click.stop>
+                  <div v-if="filteredApprovers.length > 0" class="options-list">
+                    <div
+                      v-for="approver in filteredApprovers"
+                      :key="approver.id"
+                      class="option-item"
+                      :class="{ 'is-selected': selectedApprover === approver.id }"
+                      @click="selectApprover(approver)"
+                    >
+                      <div class="option-content">
+                        <span class="option-name">{{ approver.name }}</span>
+                        <span class="option-department">{{ approver.department }}</span>
+                      </div>
+                      <svg 
+                        v-if="selectedApprover === approver.id" 
+                        class="check-icon" 
+                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      >
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div v-else class="no-results">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <p>No approvers found</p>
+                    <span>Try adjusting your search</span>
+                  </div>
+                </div>
               </div>
+              
+              <div v-if="isLoadingApprovers" class="text-sm text-gray-500 mt-1">Loading approvers...</div>
+              <div v-if="!isLoadingApprovers && approversList.length === 0" class="text-sm text-error-500 mt-1">No approvers available</div>
             </div>
             
             <div class="form-group">
@@ -805,7 +861,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -852,6 +908,10 @@ const isSaving = ref(false)
 const showHtmlSource = ref(false)
 const editedContent = ref('')
 const editorRef = ref(null)
+const showApproverDropdown = ref(false)
+const approverSearchQuery = ref('')
+const approverSearchInput = ref(null)
+const filteredApprovers = ref([])
 const editedFooterFields = ref({
   signatories: [{ name: '', role: '' }, { name: '', role: '' }],
   monthlyBudget: '',
@@ -944,6 +1004,11 @@ const formatCurrency = (value) => {
 
 const isCurrentApprover = computed(() => {
   return memo.value.currentApproverId === currentUserId && memo.value.status === 'PENDING_APPROVAL'
+})
+const selectedApproverName = computed(() => {
+  if (!selectedApprover.value) return ''
+  const approver = approversList.value.find(a => a.id === selectedApprover.value)
+  return approver ? approver.name : ''
 })
 
 const canSendToNextApprover = computed(() => {
@@ -1043,6 +1108,92 @@ const toggleHtmlMode = () => {
 }
 const addConcurrence = () => {
   editedFooterFields.value.concurrence.push({ name: '', role: '' })
+}
+
+const toggleApproverDropdown = () => {
+  if (!isLoadingApprovers.value) {
+    showApproverDropdown.value = !showApproverDropdown.value
+    if (showApproverDropdown.value) {
+      // Focus the search input when opened
+      setTimeout(() => {
+        approverSearchInput.value?.focus()
+      }, 100)
+      // Reset filter when opening
+      if (!approverSearchQuery.value) {
+        filteredApprovers.value = [...approversList.value]
+      }
+    }
+  }
+}
+
+const filterApprovers = () => {
+  const query = approverSearchQuery.value.toLowerCase().trim()
+  
+  if (!query) {
+    filteredApprovers.value = [...approversList.value]
+    return
+  }
+  
+  // Filter by full name match (searching anywhere in the name)
+  filteredApprovers.value = approversList.value.filter(approver => {
+    const fullName = approver.name.toLowerCase()
+    const department = approver.department.toLowerCase()
+    const role = approver.role.toLowerCase()
+    const email = approver.email?.toLowerCase() || ''
+    
+    // Search across multiple fields
+    return fullName.includes(query) || 
+           department.includes(query) || 
+           role.includes(query) ||
+           email.includes(query)
+  })
+  
+  // Sort results: exact matches first, then partial matches
+  filteredApprovers.value.sort((a, b) => {
+    const aName = a.name.toLowerCase()
+    const bName = b.name.toLowerCase()
+    const aStartsWith = aName.startsWith(query) ? -1 : 1
+    const bStartsWith = bName.startsWith(query) ? -1 : 1
+    return aStartsWith - bStartsWith
+  })
+}
+
+const selectApprover = (approver) => {
+  selectedApprover.value = approver.id
+  approverSearchQuery.value = approver.name
+  showApproverDropdown.value = false
+}
+
+// Update closeApproverModal to reset the search
+const closeApproverModal = () => {
+  showApproverModal.value = false
+  selectedApprover.value = null
+  approverSearchQuery.value = ''
+  showApproverDropdown.value = false
+  filteredApprovers.value = [...approversList.value]
+  priority.value = 'MEDIUM'
+  dueDate.value = ''
+  approverMessage.value = ''
+}
+
+// Update openApproverModal to initialize filtered list
+const openApproverModal = async () => {
+  // Save if the memo is in draft status
+  if (memo.value.status === 'DRAFT') {
+    await saveChanges()
+  }
+  showApproverModal.value = true
+  await fetchApprovers()
+  filteredApprovers.value = [...approversList.value]
+  approverSearchQuery.value = ''
+}
+
+// Add click outside handler to close dropdown
+const handleClickOutside = (event) => {
+  const searchableSelect = document.querySelector('.searchable-select')
+  if (searchableSelect && !searchableSelect.contains(event.target)) {
+    showApproverDropdown.value = false
+  }
 }
 
 const removeConcurrence = (index) => {
@@ -1202,7 +1353,7 @@ const fetchApprovers = async () => {
     
     approversList.value = usersData.map(user => ({
       id: user.id,
-      name: user.username,
+      name: (user.username + ' ' + user.displayName).toUpperCase(),
       role: user.role || 'Staff',
       department: user.department || 'General',
       email: user.email
@@ -1217,19 +1368,6 @@ const fetchApprovers = async () => {
   } finally {
     isLoadingApprovers.value = false
   }
-}
-
-const openApproverModal = async () => {
-  showApproverModal.value = true
-  await fetchApprovers()
-}
-
-const closeApproverModal = () => {
-  showApproverModal.value = false
-  selectedApprover.value = ''
-  priority.value = 'MEDIUM'
-  dueDate.value = ''
-  approverMessage.value = ''
 }
 
 const sendToNextApprover = async () => {
@@ -2227,6 +2365,10 @@ onMounted(() => {
     error.value = 'No memo ID provided'
     isLoading.value = false
   }
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {  
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -4026,6 +4168,7 @@ onMounted(() => {
 }
 
 .modal-header {
+  margin-top: 1rem;
   padding: 1.5rem;
   border-bottom: 1px solid var(--color-gray-200);
   display: flex;
@@ -4210,6 +4353,233 @@ onMounted(() => {
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
+}
+/* Searchable Select Styles */
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.select-input-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  background-color: var(--color-white);
+  color: var(--color-gray-900);
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 0.5rem;
+}
+
+.dark .select-input-wrapper {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-gray-700);
+  color: var(--color-gray-100);
+}
+
+.searchable-select.is-open .select-input-wrapper {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.searchable-select.no-selection .select-input-wrapper {
+  border-color: var(--color-warning-500);
+}
+
+.select-input-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-icon {
+  flex-shrink: 0;
+  color: var(--color-gray-400);
+}
+
+.dark .search-icon {
+  color: var(--color-gray-500);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.875rem;
+  color: inherit;
+  padding: 0;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--color-gray-400);
+}
+
+.dark .search-input::placeholder {
+  color: var(--color-gray-500);
+}
+
+.search-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dropdown-arrow {
+  flex-shrink: 0;
+  color: var(--color-gray-400);
+  transition: transform 0.2s;
+}
+
+.dark .dropdown-arrow {
+  color: var(--color-gray-500);
+}
+
+.dropdown-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  max-height: 280px;
+  overflow: hidden;
+}
+
+.dark .select-dropdown {
+  background-color: var(--color-gray-800);
+  border-color: var(--color-gray-700);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.options-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+
+.options-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.options-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.options-list::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 3px;
+}
+
+.dark .options-list::-webkit-scrollbar-thumb {
+  background: var(--color-gray-600);
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  gap: 0.5rem;
+}
+
+.option-item:hover {
+  background-color: var(--color-gray-50);
+}
+
+.dark .option-item:hover {
+  background-color: var(--color-gray-700);
+}
+
+.option-item.is-selected {
+  background-color: var(--color-brand-50);
+}
+
+.dark .option-item.is-selected {
+  background-color: var(--color-brand-500/15);
+}
+
+.option-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-name {
+  display: block;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--color-gray-900);
+  margin-bottom: 0.125rem;
+}
+
+.dark .option-name {
+  color: var(--color-gray-100);
+}
+
+.option-department {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+.dark .option-department {
+  color: var(--color-gray-400);
+}
+
+.check-icon {
+  flex-shrink: 0;
+  color: var(--color-brand-500);
+}
+
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  color: var(--color-gray-400);
+  text-align: center;
+}
+
+.no-results svg {
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.no-results p {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+}
+
+.dark .no-results p {
+  color: var(--color-gray-400);
+}
+
+.no-results span {
+  font-size: 0.75rem;
+  color: var(--color-gray-400);
+}
+
+.dark .no-results span {
+  color: var(--color-gray-500);
 }
 
 /* Print Styles */
